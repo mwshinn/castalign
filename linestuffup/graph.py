@@ -360,10 +360,25 @@ class Graph:
                     self.node_images[node_name] = None
         finally:
             con.close()
-    
-    def get_transform(self, frm, to):
+
+    def get_chain(self, frm, to):
+        """Return the path in the graph of transforms from `frm` to `to`."""
         assert frm in self.nodes, f"Node {frm} not found"
         assert to in self.nodes, f"Node {to} not found"
+        if frm == to:
+            return []
+        candidates = list(map(lambda x : (x,) if isinstance(x, str) else tuple(x), self.edges[frm].keys()))
+        seen = [frm]
+        while len(candidates) > 0:
+            if to in [l[-1] for l in candidates]:
+                chain = next(l for l in candidates if to == l[-1])
+                return chain
+            c0 = candidates.pop(0)
+            seen.append(c0[-1])
+            to_append = [tuple(list(c0)+[n]) for n in self.edges[c0[-1]] if n not in seen]
+            candidates.extend(to_append)
+        raise RuntimeError(f"Path from '{frm}' to '{to}' not found")
+    def get_transform(self, frm, to):
         if frm == to:
             return transform.Identity()
         def _get_transform_from_chain(chain):
@@ -373,17 +388,8 @@ class Graph:
                 tform = self.edges[cur][c] if tform is None else tform + self.edges[cur][c]
                 cur = c
             return tform
-        candidates = list(map(lambda x : (x,) if isinstance(x, str) else tuple(x), self.edges[frm].keys()))
-        seen = [frm]
-        while len(candidates) > 0:
-            if to in [l[-1] for l in candidates]:
-                chain = next(l for l in candidates if to == l[-1])
-                return _get_transform_from_chain(chain)
-            c0 = candidates.pop(0)
-            seen.append(c0[-1])
-            to_append = [tuple(list(c0)+[n]) for n in self.edges[c0[-1]] if n not in seen]
-            candidates.extend(to_append)
-        raise RuntimeError(f"Path from '{frm}' to '{to}' not found")
+        chain = self.get_chain(frm, to)
+        return _get_transform_from_chain(chain)
     def has_transform(self, frm, to):
         try:
             self.get_transform(frm, to)
