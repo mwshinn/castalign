@@ -1,5 +1,4 @@
 from setuptools import setup, Extension
-import numpy as np
 
 with open("linestuffup/_version.py", "r") as f:
     exec(f.read())
