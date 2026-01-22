@@ -456,6 +456,7 @@ c_: Convert previous point-based transform to a different point-based transform
 
 Other
 -----
+v: view
 f: flip along z axis
 u: revert most recent change
 d: toggle references on/off
@@ -522,6 +523,8 @@ q: quit
             t = alignment_gui(nodes_movable, nodes_fixed, transform=t+ttype, references=refs, graph=graph) 
         elif resp[0] == "e":
             t = alignment_gui(nodes_movable, nodes_fixed, transform=t, references=refs, graph=graph) 
+        elif resp[0] == "v":
+            t = alignment_gui(nodes_movable, nodes_fixed, transform=Identity(), references=refs, graph=graph) 
         elif resp[0] in "cx" and len(resp) > 1 and resp[1] in _POINT_BASED.keys():
             if isinstance(t, PointTransform):
                 if resp[0] == "x":
