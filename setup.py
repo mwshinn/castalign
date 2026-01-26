@@ -1,6 +1,6 @@
 from setuptools import setup, Extension
 
-with open("linestuffup/_version.py", "r") as f:
+with open("castalign/_version.py", "r") as f:
     exec(f.read())
 
 with open("README.md", "r") as f:
@@ -8,9 +8,9 @@ with open("README.md", "r") as f:
 
 
 setup(
-    name = "LineStuffUp",
+    name = "castalign",
     version = __version__,
-    description =  "3D nonlinear alignment for microscopy and neuroimaging",
+    description =  "Coppafish, Antibody Staining, and Two-photon alignment: 3D nonlinear alignment for microscopy and in vivo imaging",
     long_description = long_desc,
     long_description_content_type='text/markdown',
     author = 'Max Shinn',
@@ -19,8 +19,8 @@ setup(
     maintainer_email = 'm.shinn@ucl.ac.uk',
     license = 'MIT',
     python_requires='>=3.7',
-    url='https://github.com/mwshinn/LineStuffUp',
-    packages = ['linestuffup'],
+    url='https://github.com/mwshinn/castalign',
+    packages = ['castalign'],
     install_requires = ["numpy", "scipy", "napari", "magicgui", "scikit-image", "imageio", "imageio-ffmpeg", "threadpoolctl"],
     classifiers = [
         "Topic :: Scientific/Engineering",

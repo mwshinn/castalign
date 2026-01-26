@@ -1,6 +1,9 @@
-# LineStuffUp
+# CASTalign: Coppafish, Antibody Staining, and Two-photon alignment
 
-LineStuffUp makes it easy to align 3D images/volumes.
+CASTalign allows you to register 3D microscopy images to each other and to *in
+vivo* two-photon imaging.  It is optimised to allow registration between
+CoppaFISH and CoppaFISH 3D, antibody staining (e.g., immunofluorescence), and
+*in vivo* imaging.
 
 # Installation
 
@@ -31,7 +34,7 @@ There are three main components:
    make it easy to keep everything organised.  Several convenience methods are
    included for aligning within a graph.
 
-LineStuffUp always uses (z,y,x) coordinate format.  Likewise, images are
+CASTalign always uses (z,y,x) coordinate format.  Likewise, images are
 expected to have the z position as its first coordinate, y as its second, and x
 as its third.  The point (5,6,7) on an image ``im`` will be at the voxel
 ``im[5,6,7]``.  Note that when displaying images, as is the convention in
@@ -40,7 +43,7 @@ indicate closer to the bottom of the screen.  This format is compatible with
 nearly all other Python image libraries, and so usually you should not need to
 think about this.
 
-LineStuffUp also uses an extension on numpy ndarrays to specify a coordinate
+CASTalign also uses an extension on numpy ndarrays to specify a coordinate
 system origin.  These objects are called "ndarray_shifted".  If you do not care
 about the shift, you can use them like a normal numpy array.
 
@@ -172,20 +175,20 @@ transform points, as well as perform a composition of two transforms.
 
 ``` python
 import numpy as np
-import linestuffup as lsu
+import castalign as ca
 
 # Example 1
-t1 = lsu.TranslateFixed(x=3, y=4, z=5)
+t1 = ca.TranslateFixed(x=3, y=4, z=5)
 assert np.all(t1.transform([10, 20, 30]) == [15, 24, 33])
 assert np.all(t1.transform([[10, 20, 30], [40, 50, 60]]) == [[15, 24, 33], [45, 54, 63]])
 
 # Example 2
-t2 = lsu.TranslateFixed(z=1, y=1, x=1)
+t2 = ca.TranslateFixed(z=1, y=1, x=1)
 t = t1 + t2
 assert np.all(t.transform([10, 20, 30]) == [16, 25, 34])
 
 # Example 3
-t = t1 + lsu.Identity()
+t = t1 + ca.Identity()
 assert np.all(t.transform([10, 20, 30]) == t1.transform([10, 20, 30]))
 ```
 
@@ -197,8 +200,8 @@ from skimage.data import cells3d
 im = cells3d()[:,1]
 
 # Define the Transform and apply it to the image
-import linestuffup as lsu
-t = lsu.TranslateRotateFixed(zrotate=30, x=60)
+import castalign as ca
+t = ca.TranslateRotateFixed(zrotate=30, x=60)
 im_rotate = t.transform_image(im)
 
 # Visualise the result
