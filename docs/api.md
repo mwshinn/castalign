@@ -27,13 +27,6 @@ Perform a clockwise rotation (in degrees) about the z, y, and x axes.
 ## Transform
 Base class for all transforms. A [Transform](#transform) maps points and images from a "movable" space into a "base" space. [Transform](#transform) instances can be composed with `+` and saved/loaded from text.
 
-**Inherits**
-
-- `object`
-
-### Transform.__init__
-Construct a transform, applying any DEFAULT_PARAMETERS and validating keyword arguments.
-
 **Arguments**
 
 - `**kwargs` (dict): Parameter values. Keys must match the class's `DEFAULT_PARAMETERS` dict.
@@ -46,14 +39,14 @@ Construct a transform, applying any DEFAULT_PARAMETERS and validating keyword ar
 
 - If the subclass defines `_fit`, it is called during construction.
 
-### Transform.__repr__
+### Transform.\_\_repr\_\_
 Return a string representation that can be evaluated to reconstruct the transform.
 
 **Returns**
 
 - `str`: Executable constructor string.
 
-### Transform.__eq__
+### Transform.\_\_eq\_\_
 Compare two transforms by their string representation.
 
 **Arguments**
@@ -64,7 +57,7 @@ Compare two transforms by their string representation.
 
 - `bool`: True if representations match.
 
-### Transform.__add__
+### Transform.\_\_add\_\_
 Compose this transform with another transform using `+`.
 
 **Arguments**
@@ -75,7 +68,7 @@ Compose this transform with another transform using `+`.
 
 - A composed [Transform](#transform) (instance or class depending on inputs). See [compose_transforms](#compose_transforms).
 
-### Transform.__call__
+### Transform.\_\_call\_\_
 Apply the transform to points or an image depending on input shape.
 
 **Arguments**
@@ -194,18 +187,11 @@ Transform defined by matching corresponding point sets for a [Transform](#transf
 
 - [Transform](#transform)
 
-### PointTransform.__init__
-Construct a point-based transform.
-
 **Arguments**
 
 - `points_start` (array-like): Source points shaped `(N, 3)`.
 - `points_end` (array-like): Target points shaped `(N, 3)`.
 - `**kwargs`: Optional parameters defined in `DEFAULT_PARAMETERS`.
-
-**Returns**
-
-- [PointTransform](#pointtransform) instance.
 
 **Notes**
 
@@ -223,7 +209,7 @@ Construct a point-based transform using the points from an existing transform.
 
 - A new instance of the class.
 
-### PointTransform.__repr__
+### PointTransform.\_\_repr\_\_
 Return a string representation including point lists and parameters.
 
 **Returns**
@@ -231,11 +217,7 @@ Return a string representation including point lists and parameters.
 - `str`.
 
 ## AffineTransform
-Mixin providing affine behavior for point-based transforms.
-
-**Inherits**
-
-- `object` (intended to be combined with [PointTransform](#pointtransform))
+Mixin providing affine behavior for point-based transforms. Intended to be combined with [PointTransform](#pointtransform)).
 
 ### AffineTransform.transform_image
 Optimized image transformation for affine transforms.
@@ -267,16 +249,9 @@ Point-based transform without an analytic inverse. Uses numerical inversion.
 
 - [PointTransform](#pointtransform)
 
-### PointTransformNoInverse.__init__
-Construct with numerical inverse support.
-
 **Arguments**
 
 - `*args, **kwargs`: Passed to [PointTransform](#pointtransform).
-
-**Returns**
-
-- Instance.
 
 ### PointTransformNoInverse.transform
 Apply the transform, numerically inverting if necessary.
@@ -308,16 +283,9 @@ Translate and rotate using point matches (SVD-based).
 - [AffineTransform](#affinetransform)
 - [PointTransform](#pointtransform)
 
-### TranslateRotate.__init__
-Uses [PointTransform](#pointtransform) construction.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
-
-**Returns**
-
-- Instance.
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 
 ## TranslateRotateRescaleByPlane
 Translate, rotate, and rescale using a dominant plane (good for "pancake" images).
@@ -327,17 +295,10 @@ Translate, rotate, and rescale using a dominant plane (good for "pancake" images
 - [AffineTransform](#affinetransform)
 - [PointTransform](#pointtransform)
 
-### TranslateRotateRescaleByPlane.__init__
-Uses [PointTransform](#pointtransform) construction plus `invert` parameter.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `invert` (bool, default False): If True, swaps the regression direction and matrix inversion.
-
-**Returns**
-
-- Instance.
 
 ## TranslateRotateRescale
 Translate, rotate, and rescale using full 3D regression.
@@ -347,17 +308,10 @@ Translate, rotate, and rescale using full 3D regression.
 - [AffineTransform](#affinetransform)
 - [PointTransform](#pointtransform)
 
-### TranslateRotateRescale.__init__
-Uses [PointTransform](#pointtransform) construction plus `invert` parameter.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `invert` (bool, default False): If True, swaps regression direction and inverts the matrix.
-
-**Returns**
-
-- Instance.
 
 ## TranslateRotate2D
 Deprecated. Translate and rotate in 2D only.
@@ -375,16 +329,9 @@ Translate using point matches.
 - [AffineTransform](#affinetransform)
 - [PointTransform](#pointtransform)
 
-### Translate.__init__
-Uses [PointTransform](#pointtransform) construction.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
-
-**Returns**
-
-- Instance.
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 
 ## Flip
 Deprecated. Flip along axes using parameters.
@@ -394,17 +341,10 @@ Deprecated. Flip along axes using parameters.
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### Flip.__init__
-Construct a flip transform.
-
 **Arguments**
 
 - `z`, `y`, `x` (bool): Whether to flip along each axis.
 - `zthickness`, `ythickness`, `xthickness` (float or int): Axis sizes used to compute the shift when flipping.
-
-**Returns**
-
-- Instance.
 
 ## FlipFixed
 Flip along axes using fixed parameters (non-point-based).
@@ -414,17 +354,10 @@ Flip along axes using fixed parameters (non-point-based).
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### FlipFixed.__init__
-Construct a flip transform.
-
 **Arguments**
 
 - `z`, `y`, `x` (bool): Whether to flip along each axis.
 - `zthickness`, `ythickness`, `xthickness` (float or int): Axis sizes used to compute the shift when flipping.
-
-**Returns**
-
-- Instance.
 
 ## TranslateFixed
 Translate using fixed parameters (non-point-based).
@@ -434,16 +367,9 @@ Translate using fixed parameters (non-point-based).
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### TranslateFixed.__init__
-Construct a fixed translation transform.
-
 **Arguments**
 
 - `z`, `y`, `x` (float): Translation offsets.
-
-**Returns**
-
-- Instance.
 
 ## TranslateRotateFixed
 Translate and rotate using fixed parameters (non-point-based).
@@ -453,18 +379,11 @@ Translate and rotate using fixed parameters (non-point-based).
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### TranslateRotateFixed.__init__
-Construct a fixed translate+rotate transform.
-
 **Arguments**
 
 - `z`, `y`, `x` (float): Translation offsets.
 - `zrotate`, `yrotate`, `xrotate` (float): Rotation angles in degrees.
 - `invert` (bool): If True, uses the transpose of the rotation matrix.
-
-**Returns**
-
-- Instance.
 
 ## TranslateRotateRescaleFixed
 Translate, rotate, and rescale using fixed parameters (non-point-based).
@@ -474,19 +393,12 @@ Translate, rotate, and rescale using fixed parameters (non-point-based).
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### TranslateRotateRescaleFixed.__init__
-Construct a fixed translate+rotate+rescale transform.
-
 **Arguments**
 
 - `z`, `y`, `x` (float): Translation offsets.
 - `zrotate`, `yrotate`, `xrotate` (float): Rotation angles in degrees.
 - `zscale`, `yscale`, `xscale` (float): Scale factors. Must be non-zero to allow inversion.
 - `invert` (bool): If True, inverts the combined matrix.
-
-**Returns**
-
-- Instance.
 
 ## TranslateRotateRescale2DFixed
 Deprecated. Translate, rotate, and rescale in 2D only.
@@ -496,18 +408,11 @@ Deprecated. Translate, rotate, and rescale in 2D only.
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### TranslateRotateRescale2DFixed.__init__
-Construct a 2D fixed transform.
-
 **Arguments**
 
 - `y`, `x` (float): Translation offsets in the 2D plane.
 - `rotate` (float): Rotation angle in degrees.
 - `scale` (float): Scale factor. Must be non-zero to allow inversion.
-
-**Returns**
-
-- Instance.
 
 ## ShearFixed
 Apply a shear transform using fixed parameters.
@@ -517,16 +422,9 @@ Apply a shear transform using fixed parameters.
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### ShearFixed.__init__
-Construct a shear transform.
-
 **Arguments**
 
 - `yzshear`, `xzshear`, `xyshear` (float): Shear coefficients.
-
-**Returns**
-
-- Instance.
 
 **Notes**
 
@@ -540,17 +438,10 @@ Apply a direct 3x3 transformation matrix plus translation.
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### MatrixFixed.__init__
-Construct a transform from explicit matrix elements and translation.
-
 **Arguments**
 
 - `a11`..`a33` (float): Elements of the 3x3 matrix in row-major order.
 - `x`, `y`, `z` (float): Translation offsets.
-
-**Returns**
-
-- Instance.
 
 **Notes**
 
@@ -564,16 +455,9 @@ No-op transform.
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### Identity.__init__
-Construct an identity transform.
-
 **Arguments**
 
 - None.
-
-**Returns**
-
-- Instance.
 
 ### Identity.transform_image
 More efficient image transformation that returns the original image when possible.
@@ -594,16 +478,9 @@ Uniform or axis-specific rescaling.
 - [AffineTransform](#affinetransform)
 - [Transform](#transform)
 
-### Rescale.__init__
-Construct a rescale transform.
-
 **Arguments**
 
 - `z`, `y`, `x` (float): Scale factors. Must be non-zero to allow inversion.
-
-**Returns**
-
-- Instance.
 
 ## Triangulation
 Piecewise affine transform based on a 3D Delaunay triangulation.
@@ -612,17 +489,10 @@ Piecewise affine transform based on a 3D Delaunay triangulation.
 
 - [PointTransform](#pointtransform)
 
-### Triangulation.__init__
-Construct a triangulation transform.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `invert` (bool, default True): Start in inverse mode because inverse is faster for images.
-
-**Returns**
-
-- Instance.
 
 ## Triangulation2D
 Piecewise affine transform in a projected 2D space.
@@ -631,12 +501,9 @@ Piecewise affine transform in a projected 2D space.
 
 - [PointTransform](#pointtransform)
 
-### Triangulation2D.__init__
-Construct a triangulation transform with an optional fixed normal vector.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `invert` (bool, default True): Start in inverse mode for image efficiency.
 - `normal_z`, `normal_y`, `normal_x` (float): If all are zero, the normal is auto-detected.
 
@@ -651,18 +518,11 @@ Deprecated. Nonlinear, numerically inverted transform using a Gaussian distance-
 
 - [PointTransformNoInverse](#pointtransformnoinverse)
 
-### DistanceWeightedAverageGaussian.__init__
-Construct the transform.
-
 **Arguments**
 
-- `points_start`, `points_end`: See [PointTransform.__init__](#pointtransform__init__).
+- `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `extent` (float): Gaussian standard deviation. Should be positive.
 - `invert` (bool, default False): Controls inversion behavior in [PointTransformNoInverse](#pointtransformnoinverse).
-
-**Returns**
-
-- Instance.
 
 ## compose_transforms
 Compose two transforms or a transform and a transform class.
@@ -679,31 +539,20 @@ Compose two transforms or a transform and a transform class.
 **Notes**
 
 - If `a` or `b` is [Identity](#identity), it returns the other without extra composition.
-- Composition is also available via [Transform.__add__](#transform__add__).
+- Composition is also available via [Transform.\_\_add\_\_](#transform\_\_add\_\_).
 
 ## Graph
 [Graph](#graph) structure for managing nodes (images) and transforms between them.
-
-**Inherits**
-
-- `object`
-
-**Notes**
-
-- [TransformGraph](#graph) is an alias of [Graph](#graph) for backward compatibility (from `castalign.graph`).
-
-### Graph.__init__
-Create an empty graph.
 
 **Arguments**
 
 - `name` (str): Optional graph name.
 
-**Returns**
+**Notes**
 
-- [Graph](#graph) instance.
+- [TransformGraph](#graph) is an alias of [Graph](#graph) for backward compatibility (from `castalign.graph`).
 
-### Graph.__eq__
+### Graph.\_\_eq\_\_
 Compare graphs by name, nodes, edges, and which nodes have images loaded (not the image data).
 
 **Arguments**
@@ -714,50 +563,46 @@ Compare graphs by name, nodes, edges, and which nodes have images loaded (not th
 
 - `bool`.
 
-### Graph.__getitem__
+### Graph.\_\_getitem\_\_
 Convenience access for images and transforms.
 
 **Arguments**
 
-- `item` (str): Returns `get_image(item)`.
-- `item` (slice): If `item.start` and `item.stop` are node names, returns `get_transform(start, stop)`.
+- `item` (str or slice): If str, returns `get_image(item)`.  If slice and `item.start` and `item.stop` are node names, returns `get_transform(start, stop)`.
 
 **Returns**
 
 - `numpy.ndarray` or [ndarray_shifted](#ndarray_shifted) for images.
 - [Transform](#transform) for transforms.
 
-### Graph.__setitem__
+### Graph.\_\_setitem\_\_
 Convenience assignment for images and transforms.
 
 **Arguments**
 
-- `name` (str): Calls `add_node(name, image=value)`.
-- `name` (slice): Calls `add_edge(start, stop, value)`.
+- `name` (str or slice): If str, calls `add_node(name, image=value)`.  If slice, calls `add_edge(start, stop, value)`.
 
 **Returns**
 
 - `None`.
 
-### Graph.__delitem__
+### Graph.\_\_delitem\_\_
 Delete nodes or edges via indexing.
 
 **Arguments**
 
-- `name` (str): Calls `remove_node(name)`.
-- `name` (slice): Calls `remove_edge(start, stop)`.
+- `name` (str or slice): If str, calls `remove_node(name)`.  If slice, calls `remove_edge(start, stop)`.
 
 **Returns**
 
 - `None`.
 
-### Graph.__contains__
+### Graph.\_\_contains\_\_
 Check if a node or edge exists.
 
 **Arguments**
 
-- `item` (str): Returns True if node exists.
-- `item` (tuple/list of length 2): Returns True if edge exists.
+- `item` (str or tuple/list of length 2): If str, returns True if node exists.  If tuple/list or strings, returns True if edge exists.
 
 **Returns**
 
@@ -953,9 +798,6 @@ Napari viewer subclass that can render nodes and transforms from a [Graph](#grap
 
 - `napari.Viewer`
 
-### GraphViewer.__init__
-Construct a viewer bound to a graph.
-
 **Arguments**
 
 - `graph` ([Graph](#graph))
@@ -1047,31 +889,13 @@ Subclass of `numpy.ndarray` that carries a spatial origin.
 
 - `numpy.ndarray`
 
-### ndarray_shifted.__new__
-Create a shifted array view.
-
 **Arguments**
 
 - `a` (array-like): Input data.
 - `origin` (list/tuple/array of 3 numbers or scalar): Origin in (z, y, x) coordinates. If scalar, it is repeated for all dims.
 - `only_if_necessary` (bool): If True and `origin` is zero, returns the input array without wrapping.
 
-**Returns**
-
-- [ndarray_shifted](#ndarray_shifted).
-
-### ndarray_shifted.__array_finalize__
-Propagate the `origin` attribute on new views.
-
-**Arguments**
-
-- `obj` (numpy.ndarray or None): The source array for the view.
-
-**Returns**
-
-- `None`.
-
-### ndarray_shifted.__repr__
+### ndarray_shifted.\_\_repr\_\_
 Represent the array, including `origin` when non-zero.
 
 **Returns**
