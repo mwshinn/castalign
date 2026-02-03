@@ -866,6 +866,20 @@ Interactive GUI to create or edit a single transform using Napari.
 
 - [Transform](#transform): The fitted transform.
 
+## graph_alignment_gui
+Convenience wrapper around [alignment_gui](#alignment_gui) that accepts graph node names instead of images.
+
+**Arguments**
+
+- `movable_node` (str): Node name for the movable image.
+- `base_node` (str): Node name for the base image.
+- `graph` ([Graph](#graph)): Graph containing the nodes and transforms.
+- `**kwargs`: Passed through to [alignment_gui](#alignment_gui).
+
+**Returns**
+
+- [Transform](#transform): The fitted transform.
+
 ## align_interactive
 Command-line driven interactive alignment, building chains of composed transforms.
 
@@ -1061,4 +1075,3 @@ Numerically invert a transform at one or more points.
 **Returns**
 
 - `numpy.ndarray`: Inverted points.
-
