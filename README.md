@@ -13,4 +13,4 @@ To install, you need the following packages:
 
 # Usage
 
-See the tutorial in the documentation.
+See the [tutorial](https://castalign.readthedocs.io/en/latest/tutorial/) in the [documentation](https://castalign.readthedocs.io/en/latest/).
