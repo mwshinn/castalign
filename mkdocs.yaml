@@ -1,0 +1,9 @@
+site_name: CASTalign documentation
+nav:
+  - Home: index.md
+  - Tutorial: tutorial.md
+  - API reference: api.md
+  - Contact: contact.md
+theme: readthedocs
+extra_css:
+  - css/extra.css
