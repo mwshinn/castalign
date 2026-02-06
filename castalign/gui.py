@@ -276,10 +276,12 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
             base_points.pop(ind)
             movable_points.pop(ind)
             # Step 2b: Clean up
-            for layer_base in layers_base:
+            if len(base_points) > 0:
                 layer_base_points.data = base_points
-            for layer_movable in layers_movable:
                 layer_movable_points.data = tform.transform(pretransform.inverse_transform(movable_points))
+            else:
+                layer_base_points.data = []
+                layer_movable_points.data = []
             set_point_size()
             for b in buttons:
                 b.enabled = True
