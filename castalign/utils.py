@@ -140,7 +140,7 @@ def _image_detect_transform(img):
     return 0 # None
 
 def compress_image(img, level="normal"):
-    assert level in ["low", "normal", "high"], "Invalid level"
+    assert level in ["low", "normal", "high", "label"], "Invalid level"
     # Format code 0 == no compression
     # Format code 1 == vp9 video stack
     # Format code 2 == jpegs
@@ -148,7 +148,7 @@ def compress_image(img, level="normal"):
         img = np.asarray([img])
     if False: # Image code 0 is uncompressed, which we don't use anymore.
         return img, [0]
-    if image_is_label(img): # Lossless compression with gzip (format code 3)
+    if level == "label" or image_is_label(img): # Lossless compression with gzip (format code 3)
         if np.max(img) < 2**8 and np.min(img) >= 0:
             img = img.astype("uint8")
         elif np.max(img) < 2**16 and np.min(img) >= 0:
