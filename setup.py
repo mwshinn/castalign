@@ -21,7 +21,7 @@ setup(
     python_requires='>=3.7',
     url='https://github.com/mwshinn/castalign',
     packages = ['castalign'],
-    install_requires = ["numpy", "scipy", "napari", "magicgui", "scikit-image", "imageio", "imageio-ffmpeg", "threadpoolctl"],
+    install_requires = ["numpy", "scipy", "napari", "magicgui", "scikit-image", "imageio", "imageio-ffmpeg", "threadpoolctl", "pyqt5"],
     classifiers = [
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
