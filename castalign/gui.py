@@ -580,6 +580,457 @@ q: quit
     print("Transform is:", t)
     return t
 
+def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
+    from qtpy import QtWidgets, QtCore
+
+    if start is not None:
+        print("The `start` parameter is deprecated, use `transform` instead")
+    if transform is None:
+        transform = start
+
+    _TRANSFORMS_FOR_INTERACTIVE = {}
+    _queue = Transform.__subclasses__()
+    _reserved = "fezudsSqxc"
+    while len(_queue) > 0:
+        c = _queue.pop()
+        if hasattr(c, "SHORTCUT_KEY") and len(c.SHORTCUT_KEY) != 0:
+            assert len(c.SHORTCUT_KEY) == 1, f"Class {c} has a shortcut key '{c.SHORTCUT_KEY}' which is longer than one character"
+            assert c.SHORTCUT_KEY not in _TRANSFORMS_FOR_INTERACTIVE.keys(), f"Shortcut keys must be unique, but classes {c} and {_TRANSFORMS_FOR_INTERACTIVE[c.SHORTCUT_KEY]} have shortcut key {c.SHORTCUT_KEY}"
+            assert c.SHORTCUT_KEY not in _reserved, f"Shortcut key {c.SHORTCUT_KEY} from transform {c} is reserved, please choose a different one"
+            _TRANSFORMS_FOR_INTERACTIVE[c.SHORTCUT_KEY] = c
+        _queue.extend(c.__subclasses__())
+
+    _TRANSFORMS_FOR_INTERACTIVE = {k : v for k,v in sorted(_TRANSFORMS_FOR_INTERACTIVE.items(), key=lambda x : x[1].SORT_WEIGHT)}
+    _POINT_BASED = {k : v for k,v in _TRANSFORMS_FOR_INTERACTIVE.items() if issubclass(v, PointTransform)}
+    _NON_POINT_BASED = {k : v for k,v in _TRANSFORMS_FOR_INTERACTIVE.items() if not issubclass(v, PointTransform)}
+
+    if not isinstance(nodes_movable, (list, tuple)):
+        nodes_movable = [nodes_movable]
+    if not isinstance(nodes_fixed, (list, tuple)):
+        nodes_fixed = [nodes_fixed]
+
+    refs = []
+    for r in references:
+        if isinstance(r, str) and graph is not None:
+            refs.append((graph.get_image(r), graph.get_transform(r, nodes_fixed[0])))
+        else:
+            assert isinstance(r, tuple) and len(r) == 2 and isinstance(r[0], np.ndarray) and isinstance(r[1], Transform), "Each reference must be a tuple, where the first element is an image as an ndarray and the second is a Transform.  Alternatively, a reference can be the node name in the Graph (if applicable)."
+            refs.append(r)
+
+    if transform is None:
+        try:
+            t = graph.get_transform(nodes_movable[0], nodes_fixed[0])
+            print("Using existing transform as a starting place")
+        except (AssertionError, NameError, RuntimeError, AttributeError):
+            t = Identity()
+    elif isinstance(transform, str) and graph is not None:
+        t = graph.get_transform(transform, nodes_fixed[0])
+        while not isinstance(t, AffineTransform):
+            print("Warning: removing nonlinear portion of starting transform.")
+            t = t.pretransform()
+    elif isinstance(transform, Transform):
+        t = transform
+    else:
+        raise ValueError("Invalid starting transform")
+
+    app = QtWidgets.QApplication.instance()
+    _created_app = False
+    if app is None:
+        app = QtWidgets.QApplication([])
+        _created_app = True
+
+    t_hist = []
+    refs_current = list(refs)
+    refs_saved = list(refs)
+    _pending_prefix = None
+
+    dlg = QtWidgets.QDialog()
+    dlg.setWindowTitle("CASTalign interactive alignment (GUI)")
+    dlg.resize(1280, 920)
+    root = QtWidgets.QVBoxLayout(dlg)
+    root.setContentsMargins(10, 8, 10, 10)
+    root.setSpacing(6)
+
+    current_label = QtWidgets.QLabel()
+    current_label.setWordWrap(True)
+    status_label = QtWidgets.QLabel("")
+    status_label.setWordWrap(True)
+    status_label.setVisible(False)
+
+    header = QtWidgets.QFrame()
+    header.setFrameShape(QtWidgets.QFrame.StyledPanel)
+    header_layout = QtWidgets.QVBoxLayout(header)
+    header_layout.setContentsMargins(8, 6, 8, 6)
+    header_layout.setSpacing(2)
+    header_layout.addWidget(current_label)
+    header_layout.addWidget(status_label)
+    root.addWidget(header)
+
+    group_param = QtWidgets.QGroupBox("Parametric transforms")
+    layout_param = QtWidgets.QGridLayout(group_param)
+    layout_param.setHorizontalSpacing(8)
+    layout_param.setVerticalSpacing(6)
+    root.addWidget(group_param)
+
+    group_point = QtWidgets.QGroupBox("Point-based transforms")
+    layout_point = QtWidgets.QGridLayout(group_point)
+    layout_point.setHorizontalSpacing(8)
+    layout_point.setVerticalSpacing(6)
+    root.addWidget(group_point)
+
+    group_modify = QtWidgets.QGroupBox("Modify / other actions")
+    layout_modify = QtWidgets.QGridLayout(group_modify)
+    layout_modify.setHorizontalSpacing(8)
+    layout_modify.setVerticalSpacing(6)
+    root.addWidget(group_modify)
+
+    group_extend = QtWidgets.QGroupBox("Extend previous point-based transform (x_)")
+    layout_extend = QtWidgets.QGridLayout(group_extend)
+    layout_extend.setHorizontalSpacing(8)
+    layout_extend.setVerticalSpacing(6)
+    root.addWidget(group_extend)
+
+    group_convert = QtWidgets.QGroupBox("Convert previous point-based transform (c_)")
+    layout_convert = QtWidgets.QGridLayout(group_convert)
+    layout_convert.setHorizontalSpacing(8)
+    layout_convert.setVerticalSpacing(6)
+    root.addWidget(group_convert)
+
+    quit_button = QtWidgets.QPushButton("Quit")
+    root.addWidget(quit_button)
+
+    def _set_status(msg="", level="error"):
+        if msg is None or len(str(msg)) == 0:
+            status_label.setText("")
+            status_label.setVisible(False)
+            return
+        print(msg)
+        status_label.setText(str(msg))
+        if level == "warning":
+            status_label.setStyleSheet("QLabel { background-color: #fff3cd; color: #7a2e00; border: 1px solid #d6b656; padding: 4px; font-weight: 700; }")
+        elif level == "info":
+            status_label.setStyleSheet("QLabel { background-color: #d1ecf1; color: #0c5460; border: 1px solid #7fb7c2; padding: 4px; font-weight: 700; }")
+        else:
+            status_label.setStyleSheet("QLabel { background-color: #f8d7da; color: #7f1d1d; border: 1px solid #d17a84; padding: 4px; font-weight: 700; }")
+        status_label.setVisible(True)
+
+    def _push_history():
+        t_hist.append(t)
+
+    def _refresh():
+        current_label.setText(f"Current transform: {t}")
+        in_prefix_mode = _pending_prefix is not None
+        is_point = isinstance(t, PointTransform)
+        has_refs = len(refs_saved) > 0 or len(refs_current) > 0
+        can_save = graph is not None
+        for b in all_buttons:
+            b.setEnabled(not in_prefix_mode)
+        if in_prefix_mode:
+            if _pending_prefix == "x":
+                for b in extend_buttons:
+                    b.setEnabled(True)
+            elif _pending_prefix == "c":
+                for b in convert_buttons:
+                    b.setEnabled(True)
+        else:
+            for b in point_choice_buttons:
+                b.setEnabled(True)
+            for b in extend_buttons + convert_buttons:
+                b.setEnabled(is_point)
+        button_toggle_refs.setEnabled((not in_prefix_mode) and has_refs)
+        button_save.setEnabled((not in_prefix_mode) and can_save)
+        button_save_disk.setEnabled((not in_prefix_mode) and can_save)
+        if in_prefix_mode:
+            _set_status("")
+
+    def _run_alignment(align_transform, assign_result=True):
+        nonlocal t
+        dlg.hide()
+        dlg.setEnabled(False)
+        QtWidgets.QApplication.processEvents()
+        try:
+            result = alignment_gui(nodes_movable, nodes_fixed, transform=align_transform, references=refs_current, graph=graph)
+            if assign_result:
+                t = result
+        finally:
+            dlg.setEnabled(True)
+            dlg.show()
+            dlg.raise_()
+            dlg.activateWindow()
+            QtWidgets.QApplication.processEvents()
+        _set_status("")
+        _refresh()
+
+    def _run_new_transform(ttype):
+        _push_history()
+        _run_alignment(t+ttype, assign_result=True)
+
+    def _run_edit():
+        _push_history()
+        _run_alignment(t, assign_result=True)
+
+    def _run_view():
+        _push_history()
+        _run_alignment(t+Identity, assign_result=False)
+
+    def _run_remove_previous():
+        nonlocal t
+        _push_history()
+        t = t.pretransform()
+        _set_status("")
+        _refresh()
+
+    def _run_flip():
+        nonlocal t
+        _push_history()
+        im1 = graph.get_image(nodes_movable[0]) if (graph is not None and isinstance(nodes_movable[0], str)) else nodes_movable[0]
+        t = FlipFixed(z=True, zthickness=im1.shape[0]) + t
+        _set_status("")
+        _refresh()
+
+    def _run_toggle_refs():
+        nonlocal refs_current, refs_saved
+        _push_history()
+        if len(refs_current) > 0:
+            refs_saved = list(refs_current)
+            refs_current = []
+            print("Refs toggled off")
+        else:
+            if len(refs_saved) > 0:
+                refs_current = list(refs_saved)
+                print("Refs toggled on")
+            else:
+                _set_status("No references to toggle", level="warning")
+                _refresh()
+                return
+        _set_status("")
+        _refresh()
+
+    def _run_undo():
+        nonlocal t
+        if len(t_hist) == 0:
+            _set_status("No more history to undo", level="warning")
+            return
+        t = t_hist.pop()
+        _set_status("")
+        _refresh()
+
+    def _run_save(write_to_disk=False):
+        _push_history()
+        if graph is None:
+            _set_status("No graph provided; cannot save")
+            return
+        try:
+            graph.add_edge(nodes_movable[0], nodes_fixed[0], t)
+        except AssertionError:
+            _set_status("Edge already exists, overwriting", level="warning")
+            graph.add_edge(nodes_movable[0], nodes_fixed[0], t, update=True)
+        if write_to_disk:
+            if graph.filename is None:
+                filename, ok = QtWidgets.QInputDialog.getText(dlg, "Save graph", "Filename (eg my_graph):")
+                if not ok or len(filename.strip()) == 0:
+                    _set_status("Save to disk cancelled", level="warning")
+                    return
+                graph.filename = filename.strip()
+            graph.save()
+            _set_status(f"Saved to graph and disk: {graph.filename}", level="info")
+        else:
+            _set_status("Saved to graph (not written to disk)", level="info")
+        _refresh()
+
+    def _run_extend_or_convert(mode, key):
+        nonlocal _pending_prefix
+        _push_history()
+        if not isinstance(t, PointTransform):
+            _set_status("Previous transform must be a point-based transform")
+            _pending_prefix = None
+            _refresh()
+            return
+        if mode == "x":
+            t2 = _refine_transform(t, _TRANSFORMS_FOR_INTERACTIVE[key])
+        else:
+            t2 = _replace_transform(t, _TRANSFORMS_FOR_INTERACTIVE[key])
+        _pending_prefix = None
+        _run_alignment(t2, assign_result=True)
+
+    def _handle_keypress_char(ch):
+        nonlocal _pending_prefix
+        if _pending_prefix is not None:
+            prefix = _pending_prefix
+            if len(ch) == 1 and ch in _POINT_BASED.keys():
+                _run_extend_or_convert(prefix, ch)
+            else:
+                _pending_prefix = None
+                _refresh()
+            return True
+        if len(ch) != 1:
+            return False
+        if ch in _TRANSFORMS_FOR_INTERACTIVE.keys():
+            _run_new_transform(_TRANSFORMS_FOR_INTERACTIVE[ch])
+            return True
+        if ch == "e":
+            _run_edit()
+            return True
+        if ch == "v":
+            _run_view()
+            return True
+        if ch == "z":
+            _run_remove_previous()
+            return True
+        if ch == "f":
+            _run_flip()
+            return True
+        if ch == "u":
+            _run_undo()
+            return True
+        if ch == "d":
+            _run_toggle_refs()
+            return True
+        if ch == "s":
+            _run_save(write_to_disk=False)
+            return True
+        if ch == "S":
+            _run_save(write_to_disk=True)
+            return True
+        if ch in "xc":
+            _pending_prefix = ch
+            _refresh()
+            return True
+        if ch == "q":
+            dlg.accept()
+            return True
+        return False
+
+    _dlg_keypress_base = dlg.keyPressEvent
+    def _dlg_keypress(event):
+        nonlocal _pending_prefix
+        if _pending_prefix is not None:
+            if event.key() in (QtCore.Qt.Key_Shift, QtCore.Qt.Key_Control, QtCore.Qt.Key_Alt, QtCore.Qt.Key_Meta):
+                event.accept()
+                return
+            if event.key() == QtCore.Qt.Key_Escape:
+                _pending_prefix = None
+                _refresh()
+                event.accept()
+                return
+        if _handle_keypress_char(event.text()):
+            event.accept()
+            return
+        _dlg_keypress_base(event)
+    dlg.keyPressEvent = _dlg_keypress
+
+    point_choice_buttons = []
+    all_buttons = []
+    row = 0
+    col = 0
+    for k, cls in _NON_POINT_BASED.items():
+        b = QtWidgets.QPushButton(f"{cls.NAME} ({k})")
+        b.clicked.connect(lambda checked=False, c=cls: _run_new_transform(c))
+        layout_param.addWidget(b, row, col)
+        all_buttons.append(b)
+        col += 1
+        if col == 3:
+            col = 0
+            row += 1
+
+    row = 0
+    col = 0
+    for k, cls in _POINT_BASED.items():
+        b = QtWidgets.QPushButton(f"{cls.NAME} ({k})")
+        b.clicked.connect(lambda checked=False, c=cls: _run_new_transform(c))
+        layout_point.addWidget(b, row, col)
+        point_choice_buttons.append(b)
+        all_buttons.append(b)
+        col += 1
+        if col == 3:
+            col = 0
+            row += 1
+
+    button_edit = QtWidgets.QPushButton("Edit previous transform (e)")
+    button_edit.clicked.connect(_run_edit)
+    layout_modify.addWidget(button_edit, 0, 0)
+    all_buttons.append(button_edit)
+
+    button_view = QtWidgets.QPushButton("View (v)")
+    button_view.clicked.connect(_run_view)
+    layout_modify.addWidget(button_view, 0, 1)
+    all_buttons.append(button_view)
+
+    button_remove = QtWidgets.QPushButton("Remove previous transform (z)")
+    button_remove.clicked.connect(_run_remove_previous)
+    layout_modify.addWidget(button_remove, 1, 0)
+    all_buttons.append(button_remove)
+
+    button_flip = QtWidgets.QPushButton("Flip along z axis (f)")
+    button_flip.clicked.connect(_run_flip)
+    layout_modify.addWidget(button_flip, 1, 1)
+    all_buttons.append(button_flip)
+
+    button_undo = QtWidgets.QPushButton("Undo (u)")
+    button_undo.clicked.connect(_run_undo)
+    layout_modify.addWidget(button_undo, 2, 0)
+    all_buttons.append(button_undo)
+
+    button_toggle_refs = QtWidgets.QPushButton("Toggle references on/off (d)")
+    button_toggle_refs.clicked.connect(_run_toggle_refs)
+    layout_modify.addWidget(button_toggle_refs, 2, 1)
+    all_buttons.append(button_toggle_refs)
+
+    button_save = QtWidgets.QPushButton("Save to graph (s)")
+    button_save.clicked.connect(lambda checked=False: _run_save(write_to_disk=False))
+    layout_modify.addWidget(button_save, 3, 0)
+    all_buttons.append(button_save)
+
+    button_save_disk = QtWidgets.QPushButton("Save to graph and disk (S)")
+    button_save_disk.clicked.connect(lambda checked=False: _run_save(write_to_disk=True))
+    layout_modify.addWidget(button_save_disk, 3, 1)
+    all_buttons.append(button_save_disk)
+
+    extend_buttons = []
+    convert_buttons = []
+
+    row = 0
+    col = 0
+    for k, cls in _POINT_BASED.items():
+        b = QtWidgets.QPushButton(f"Extend with {cls.NAME} (x{k})")
+        b.clicked.connect(lambda checked=False, kk=k: _run_extend_or_convert("x", kk))
+        layout_extend.addWidget(b, row, col)
+        extend_buttons.append(b)
+        all_buttons.append(b)
+        col += 1
+        if col == 3:
+            col = 0
+            row += 1
+
+    row = 0
+    col = 0
+    for k, cls in _POINT_BASED.items():
+        b = QtWidgets.QPushButton(f"Convert to {cls.NAME} (c{k})")
+        b.clicked.connect(lambda checked=False, kk=k: _run_extend_or_convert("c", kk))
+        layout_convert.addWidget(b, row, col)
+        convert_buttons.append(b)
+        all_buttons.append(b)
+        col += 1
+        if col == 3:
+            col = 0
+            row += 1
+
+    quit_button.setText("Quit (q)")
+    quit_button.clicked.connect(dlg.accept)
+    all_buttons.append(quit_button)
+
+    _refresh()
+    event_loop = QtCore.QEventLoop()
+    dlg.finished.connect(event_loop.quit)
+    dlg.show()
+    event_loop.exec()
+    print("Transform is:", t)
+
+    if _created_app:
+        app.quit()
+
+    return t
+
 def _refine_transform(transform, transformtype, **kwargs):
     start = transform.transform(transform.pretransform().invert().transform(transform.points_start))
     end = transform.points_end
