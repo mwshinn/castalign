@@ -54,11 +54,13 @@ def blit(source, target, loc):
 def bake_images(im_fixed, im_movable, transform):
     origin = transform.origin_and_maxpos(im_movable)[0]
     ti = transform.transform_image(im_movable)
-    new_dims_max = np.ceil(np.max([ti.shape + origin, im_fixed.shape], axis=0)).astype(int)
-    new_dims_min = np.floor(np.min([origin, [0,0,0]], axis=0)).astype(int)
-    im = np.zeros(new_dims_max-new_dims_min, dtype=float)
-    blit(im_fixed, im, tuple([0,0,0]-new_dims_min))
-    blit(im_movable, im, tuple(origin.astype(int)-new_dims_min))
+    fixed_origin = im_fixed.origin if isinstance(im_fixed, ndarray_shifted) else np.asarray([0,0,0])
+    fixed_maxpos = fixed_origin + np.asarray(im_fixed.shape)
+    new_dims_max = np.ceil(np.max([ti.shape + origin, fixed_maxpos], axis=0)).astype(int)
+    new_dims_min = np.floor(np.min([origin, fixed_origin], axis=0)).astype(int)
+    im = np.zeros(new_dims_max - new_dims_min, dtype=float)
+    blit(im_fixed, im, tuple(fixed_origin - new_dims_min))
+    blit(im_movable, im, tuple(origin.astype(int) - new_dims_min))
     return ndarray_shifted(im, origin=new_dims_min)
 
 def absolute_coords_to_voxel_coords(img, coords):
