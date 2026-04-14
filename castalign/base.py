@@ -528,12 +528,17 @@ class TranslateRotateRescale2DFixed(AffineTransform,Transform): # Deprecated
 
 class ShearFixed(AffineTransform,Transform):
     NAME = "Shear"
-    DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0}
+    DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0, "zshift": 0, "yshift": 0, "xshift": 0}
+    SHORTCUT_KEY = "k"
+    GUI_DRAG_PARAMETERS = ["zshift", "yshift", "xshift"]
+    SORT_WEIGHT = -95
     def _fit(self):
         self.shift = np.zeros(3)
+        self.shift = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]])
         self.matrix = np.asarray([[1, 0, 0], [self.params["yzshear"], 1, 0], [self.params["xzshear"], self.params["xyshear"], 1]])
     def invert(self):
-        return self.__class__(yzshear=-self.params["yzshear"], xzshear=self.params["xyshear"]*self.params["yzshear"]-self.params["xzshear"], xyshear=-self.params["xyshear"])
+        s = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]]) @ np.asarray([[1, 0, 0], [-self.params["yzshear"], 1, 0], [self.params["yzshear"]*self.params["xyshear"]-self.params["xzshear"], -self.params["xyshear"], 1]])
+        return self.__class__(yzshear=-self.params["yzshear"], xzshear=self.params["xyshear"]*self.params["yzshear"]-self.params["xzshear"], xyshear=-self.params["xyshear"], zshift=s[0], yshift=s[1], xshift=s[2])
 
 Shear = ShearFixed
 
@@ -542,6 +547,8 @@ class MatrixFixed(AffineTransform,Transform):
     NAME = "Transformation matrix"
     DEFAULT_PARAMETERS = {"a11": 1, "a12": 0, "a13": 0, "a21": 0, "a22": 1, "a23": 0, "a31": 0, "a32": 0, "a33": 1, "x": 0, "y": 0, "z": 0}
     GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    SHORTCUT_KEY = "m"
+    SORT_WEIGHT = -90
     def _fit(self):
         p = lambda num : self.params[f"a{num}"]
         self.matrix = np.asarray([[p(11), p(12), p(13)], [p(21), p(22), p(23)], [p(31), p(32), p(33)]])
@@ -922,5 +929,4 @@ def compose_transforms(a, b):
                     return a
             return ComposedPartial
     raise NotImplementedError("Invalid composition")
-
 

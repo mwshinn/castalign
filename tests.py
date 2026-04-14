@@ -34,7 +34,7 @@ class TestTransforms(unittest.TestCase):
             dict(z=-10, y=0.3, x=4),
             dict(),
             dict(z=2, y=4, x=3),
-            dict(yzshear=0.3, xzshear=-0.2, xyshear=0.1),
+            dict(yzshear=0.3, xzshear=-0.2, xyshear=0.1, xshift=4, yshift=-5, zshift=2),
             dict(z=True, zthickness=30),
             dict(
                 xscale=1.2,
@@ -416,7 +416,7 @@ class TestGraphs(unittest.TestCase):
             dict(z=-10, y=0.3, x=4),
             dict(),
             dict(z=2, y=4, x=3),
-            dict(yzshear=0.3, xzshear=-0.2, xyshear=0.1),
+            dict(yzshear=0.3, xzshear=-0.2, xyshear=0.1, xshift=4, yshift=-5, zshift=2),
             dict(z=True, zthickness=30),
             dict(
                 xscale=1.2,
