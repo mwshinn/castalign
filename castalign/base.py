@@ -529,7 +529,7 @@ class TranslateRotateRescale2DFixed(AffineTransform,Transform): # Deprecated
 class ShearFixed(AffineTransform,Transform):
     NAME = "Shear"
     DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0, "zshift": 0, "yshift": 0, "xshift": 0}
-    SHORTCUT_KEY = "k"
+    SHORTCUT_KEY = "z"
     GUI_DRAG_PARAMETERS = ["zshift", "yshift", "xshift"]
     SORT_WEIGHT = -95
     def _fit(self):
@@ -929,4 +929,3 @@ def compose_transforms(a, b):
                     return a
             return ComposedPartial
     raise NotImplementedError("Invalid composition")
-

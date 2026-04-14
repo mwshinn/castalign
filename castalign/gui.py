@@ -418,7 +418,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
         transform = start
     _TRANSFORMS_FOR_INTERACTIVE = {}
     _queue = Transform.__subclasses__()
-    _reserved = "fezudsSqxc"
+    _reserved = "fekudsSqxc"
     while len(_queue) > 0:
         c = _queue.pop()
         if hasattr(c, "SHORTCUT_KEY") and len(c.SHORTCUT_KEY) != 0:
@@ -451,7 +451,7 @@ Point-based transforms
 Modify last transform
 ---------------------
 e: edit previous transform
-z: remove the previous transform
+k: remove the previous transform
 x_: Extend previous point-based transform with a different point-based transform
 c_: Convert previous point-based transform to a different point-based transform
 (where _ is the letter key for any point based transform)
@@ -557,7 +557,7 @@ q: quit
             else:
                 print("No more history to undo")
             t = t_hist.pop()
-        elif resp == "z":
+        elif resp == "k":
             t = t.pretransform()
         elif resp in "sS" and graph is not None:
             try:
@@ -590,7 +590,7 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
 
     _TRANSFORMS_FOR_INTERACTIVE = {}
     _queue = Transform.__subclasses__()
-    _reserved = "fezudsSqxc"
+    _reserved = "fekudsSqxc"
     while len(_queue) > 0:
         c = _queue.pop()
         if hasattr(c, "SHORTCUT_KEY") and len(c.SHORTCUT_KEY) != 0:
@@ -874,7 +874,7 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
         if ch == "v":
             _run_view()
             return True
-        if ch == "z":
+        if ch == "k":
             _run_remove_previous()
             return True
         if ch == "f":
@@ -956,8 +956,8 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
     layout_modify.addWidget(button_view, 0, 1)
     all_buttons.append(button_view)
 
-    button_remove = QtWidgets.QPushButton("Remove previous transform (z)")
-    button_remove.clicked.connect(_run_remove_previous)
+    button_remove = QtWidgets.QPushButton("Remove previous transform (k)")
+    button_remove.clicked.connect(lambda checked=False: _handle_keypress_char("k"))
     layout_modify.addWidget(button_remove, 1, 0)
     all_buttons.append(button_remove)
 
