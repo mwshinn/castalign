@@ -19,14 +19,15 @@ class TestTransforms(unittest.TestCase):
         np.random.seed(0)
 
         cls._fixed_transforms = [
-            TranslateRotateFixed,
-            TranslateRotateFixed,
-            TranslateFixed,
+            RigidParametric,
+            RigidParametric,
+            TranslateParametric,
             Identity,
-            Rescale,
-            ShearFixed,
-            FlipFixed,
-            TranslateRotateRescaleFixed,
+            RescaleParametric,
+            ShearParametric,
+            FlipParametric,
+            TranslateRotateRescaleParametric,
+            AffineParametric,
         ]
         cls._fixed_transforms_params = [
             dict(z=3.2, y=5, x=-24, zrotate=3.4, yrotate=10, xrotate=20),
@@ -47,19 +48,20 @@ class TestTransforms(unittest.TestCase):
                 y=-8,
                 z=5,
             ),
+            dict(xscale=1.2, yscale=0.9, zscale=1.4, xrotate=3, yrotate=2, zrotate=10, yzshear=0.2, xzshear=-0.1, xyshear=0.15, x=10, y=-8, z=5),
         ]
         cls.fixed_transforms = [
             t(**tp) for t, tp in zip(cls._fixed_transforms, cls._fixed_transforms_params)
         ]
 
         cls._point_transforms = [
-            TranslateRotate,
+            Rigid,
             Translate,
             TranslateRotate2D,
-            TranslateRotateRescale,
+            Affine,
             Triangulation,
         ]
-        cls._point_transforms_2d = [Triangulation2D, TranslateRotateRescaleByPlane]
+        cls._point_transforms_2d = [PlaneConstrainedTriangulation, PlaneConstrainedAffine]
         cls._point_transforms_slow = [DistanceWeightedAverage] if TEST_SLOW_TRANSFORMS else []
 
         points_pre_flat = np.random.rand(20, 3)
@@ -234,14 +236,14 @@ class TestTransforms(unittest.TestCase):
     def test_exact_answers_for_some_transforms(self):
         self.assertTrue(
             self.close(
-                TranslateFixed(z=5, y=4, x=7).transform(self.points_pre),
+                TranslateParametric(z=5, y=4, x=7).transform(self.points_pre),
                 self.points_pre + [5, 4, 7],
             )
         )
         self.assertTrue(self.close(Identity().transform(self.points_pre), self.points_pre))
         self.assertTrue(
             self.close(
-                TranslateRotateFixed(
+                RigidParametric(
                     z=3, y=8, x=-3, zrotate=8, yrotate=-9, xrotate=2
                 ).transform(self.points_pre),
                 self.points_pre @ rotation_matrix(8, -9, 2) + [3, 8, -3],
@@ -257,7 +259,7 @@ class TestTransforms(unittest.TestCase):
         )
         self.assertTrue(
             self.close(
-                TranslateRotate(
+                Rigid(
                     self.points_pre,
                     (self.points_pre + [-4, 2, 1]) @ rotation_matrix(6, 1, -3),
                 ).transform(self.points_pre),
@@ -275,10 +277,20 @@ class TestTransforms(unittest.TestCase):
         )
         self.assertTrue(
             self.close(
-                Rescale(z=3, y=1, x=0.5).transform(self.points_pre),
+                RescaleParametric(z=3, y=1, x=0.5).transform(self.points_pre),
                 self.points_pre * [3, 1, 0.5],
             )
         )
+
+    def test_affinefixed_matches_existing_special_cases(self):
+        p = self.new_points
+        trr = TranslateRotateRescaleParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1)
+        aff_no_shear = AffineParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1, yzshear=0, xzshear=0, xyshear=0)
+        self.assertTrue(self.close(trr.transform(p), aff_no_shear.transform(p)), msg="AffineParametric with zero shear should match TranslateRotateRescaleParametric")
+
+        shear = ShearParametric(zshift=2, yshift=-5, xshift=4, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
+        aff_no_rot_scale = AffineParametric(z=2, y=-5, x=4, zrotate=0, yrotate=0, xrotate=0, zscale=1, yscale=1, xscale=1, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
+        self.assertTrue(self.close(shear.transform(p), aff_no_rot_scale.transform(p)), msg="AffineParametric with identity rotate/scale should match ShearParametric")
 
 
 class TestSpotTransforms(unittest.TestCase):
@@ -289,7 +301,7 @@ class TestSpotTransforms(unittest.TestCase):
         cls.spotpos = (51, 65, 53)
         cls.spot[cls.spotpos] = 1
 
-        cls._fixed_transforms_spot = [TranslateRotateFixed, TranslateFixed, Identity]
+        cls._fixed_transforms_spot = [RigidParametric, TranslateParametric, Identity]
         cls._fixed_transforms_params_spot = [
             dict(z=3.2, y=5, x=-24, zrotate=3.4, yrotate=5, xrotate=10),
             dict(z=-10, y=0.3, x=4),
@@ -299,7 +311,7 @@ class TestSpotTransforms(unittest.TestCase):
             t(**tp)
             for t, tp in zip(cls._fixed_transforms_spot, cls._fixed_transforms_params_spot)
         ]
-        cls._point_transforms_spot = [TranslateRotate2D, Translate, TranslateRotate]
+        cls._point_transforms_spot = [TranslateRotate2D, Translate, Rigid]
         cls._point_transforms_spot_slow = [Triangulation]
 
         cls.points_pre = np.random.randn(100, 3) + 50
@@ -370,15 +382,15 @@ class TestNonRigidTransforms(unittest.TestCase):
             def transform_image(self, *args, **kwargs):
                 return Transform.transform_image(self, *args, **kwargs)
 
-        class _TranslateRotateComplicated(TranslateRotate):
-            """Should be identical to TranslateRotate, included for testing only."""
+        class _TranslateRotateComplicated(Rigid):
+            """Should be identical to Rigid, included for testing only."""
 
             def transform_image(self, *args, **kwargs):
                 return Transform.transform_image(self, *args, **kwargs)
 
         for simple, complicated in [
             (Translate, _TranslateComplicated),
-            (TranslateRotate, _TranslateRotateComplicated),
+            (Rigid, _TranslateRotateComplicated),
         ]:
             im1 = complicated(self.points_pre, self.points_post).transform_image(
                 self.checkerboard, output_size=self.checkerboard.shape
@@ -401,14 +413,14 @@ class TestGraphs(unittest.TestCase):
     def test_graphs(self):
         np.random.seed(3)
         fixed_transforms = [
-            TranslateRotateFixed,
-            TranslateRotateFixed,
-            TranslateFixed,
+            RigidParametric,
+            RigidParametric,
+            TranslateParametric,
             Identity,
-            Rescale,
-            ShearFixed,
-            FlipFixed,
-            TranslateRotateRescaleFixed,
+            RescaleParametric,
+            ShearParametric,
+            FlipParametric,
+            TranslateRotateRescaleParametric,
         ]
         fixed_transforms_params = [
             dict(z=3.2, y=5, x=-24, zrotate=3.4, yrotate=10, xrotate=20),
@@ -462,7 +474,7 @@ class TestGraphs(unittest.TestCase):
             self.assertEqual(g, g2)
 
 
-class InvertibleError(PointTransformNoInverse):
+class InvertibleError(PointTransformNoAnalyticInverse):
     DEFAULT_PARAMETERS = {"extent": 1, "invert": False}
     def _transform(self, points, points_start, points_end):
         return points
@@ -533,13 +545,13 @@ class TestGraph(unittest.TestCase):
         g.add_node("C")
 
         # Add an invertible edge
-        t_ab = TranslateFixed(x=10)
+        t_ab = TranslateParametric(x=10)
         g.add_edge("A", "B", t_ab)
         self.assertIn("B", g.edges["A"])
         self.assertIs(g.edges["A"]["B"], t_ab)
         # Check for automatic inverse
         self.assertIn("A", g.edges["B"])
-        self.assertIsInstance(g.edges["B"]["A"], TranslateFixed)
+        self.assertIsInstance(g.edges["B"]["A"], TranslateParametric)
 
         # Add a non-invertible edge
         t_ac = InvertibleError()
@@ -561,7 +573,7 @@ class TestGraph(unittest.TestCase):
         g_orig.add_node("n2", image=img2)
         g_orig.add_node("n3", image="n1") # Reference node
         g_orig.add_node("n4")
-        g_orig.add_edge("n1", "n2", TranslateFixed(x=5))
+        g_orig.add_edge("n1", "n2", TranslateParametric(x=5))
         g_orig.metadata = {"author": "tester"}
 
         g_orig.save(self.db_path)
@@ -586,7 +598,7 @@ class TestGraph(unittest.TestCase):
         # Test loading of a referenced image
         self.assertEqual(g_loaded.node_images["n3"], "ref:n1")
         # get_image should calculate the transformed image
-        transformed_img = TranslateFixed(x=0).transform_image(img1) # Bogus transform, just for check
+        transformed_img = TranslateParametric(x=0).transform_image(img1) # Bogus transform, just for check
         # With our mocks, the path n1->n3 is empty, so there will be an error
         with self.assertRaises(RuntimeError):
             g_loaded.get_image("n3")
@@ -630,7 +642,7 @@ class TestGraph(unittest.TestCase):
         # Create a fake old .npz file
         name = "OldNPZ"
         nodes = ["A", "B"]
-        edges = repr({'A': {'B': TranslateFixed(x=1)}, 'B': {'A': TranslateFixed(x=1)}})
+        edges = repr({'A': {'B': TranslateParametric(x=1)}, 'B': {'A': TranslateParametric(x=1)}})
         node_images_keys = ["A"]
         # Use our mock compression to get the right format
         img_a_data, img_a_info = utils.compress_image(self._create_sample_image(50))
@@ -661,17 +673,17 @@ class TestGraph(unittest.TestCase):
         g.add_node("C")
         g.add_node("D") # Disconnected
         
-        g.add_edge("A", "B", TranslateFixed(x=10))
-        g.add_edge("B", "C", TranslateFixed(x=5))
+        g.add_edge("A", "B", TranslateParametric(x=10))
+        g.add_edge("B", "C", TranslateParametric(x=5))
 
         # Direct transform
         t_ab = g.get_transform("A", "B")
-        self.assertIsInstance(t_ab, TranslateFixed)
-        self.assertEqual(t_ab, TranslateFixed(x=10))
+        self.assertIsInstance(t_ab, TranslateParametric)
+        self.assertEqual(t_ab, TranslateParametric(x=10))
 
         # Chained transform
         t_ac = g.get_transform("A", "C")
-        self.assertTrue(np.all(t_ac.transform([1, 2, 3]) == ca.TranslateFixed(x=15).transform([1, 2, 3])))
+        self.assertTrue(np.all(t_ac.transform([1, 2, 3]) == ca.TranslateParametric(x=15).transform([1, 2, 3])))
         
         # Identity transform
         t_aa = g.get_transform("A", "A")

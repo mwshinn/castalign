@@ -48,7 +48,7 @@ There are many types of [Transforms](api.md#transform) included by default.  The
 main categories:
 
 - *Parameter-based Transforms* use parametric values to define the [Transform](api.md#transform).
-  For instance, [TranslateFixed](api.md#translatefixed) is a parameter-based [Transform](api.md#transform) that receives an
+  For instance, [TranslateParametric](api.md#translateparametric) is a parameter-based [Transform](api.md#transform) that receives an
   explicit z, y, and x shift.
 - *Point-based Transforms* use a point cloud to define the [Transform](api.md#transform).  For
   point-based [Transforms](api.md#transform), you must define the starting and ending positions of
@@ -66,7 +66,7 @@ values for each of its parameters, and matching point clouds if it is a
 Point-based [Transform](api.md#transform).  This is represented by an instance of the class.  An
 unspecified [Transform](api.md#transform) does not yet have chosen parameters or points, and is
 represented by the uninsantiated class.  For instance,
-``TranslateFixed(x=3,y=0,z=1)`` is specified, but ``TranslateFixed`` is
+``TranslateParametric(x=3,y=0,z=1)`` is specified, but ``TranslateParametric`` is
 unspecified.  You cannot apply an unspecified [Transform](api.md#transform) to points or an image,
 because you have not yet defined what the transform should do.  Unspecified
 transforms can be made specified through the GUI, or by calling them with the
@@ -82,7 +82,7 @@ unspecified [Transform](api.md#transform) must be the final term in the sum.  Tw
 [Transforms](api.md#transform) cannot be composed.
 
 **[Transforms](api.md#transform) are lossless.**  If you compose 
-``Rescale(x=.5, y=.5, z=.5) + Rescale(x=2, y=2, z=2)`` 
+``RescaleParametric(x=.5, y=.5, z=.5) + RescaleParametric(x=2, y=2, z=2)`` 
 and apply it to an image, the result will be identical
 to your starting image, without the artifacts from resizing the image.  More
 generally, under the hood, a long chain of composed transforms will all be
@@ -123,26 +123,26 @@ by default:
 |-------------------------------|------|---------|------------|-------------|------------|--------|-----------------------------------------------------------------------------------|
 | [Identity](api.md#identity)                      | X    | X       | X          |             | X          | X      | Do nothing                                                                        |
 | [Translate](api.md#translate)                     | X    | X       | X          | X           | X          | X      | Translation                                                                       |
-| [TranslateFixed](api.md#translatefixed)                | X    | X       | X          |             | X          | X      | Translation                                                                       |
-| [TranslateRotate](api.md#translaterotate)               | X    | X       | X          | X           | X          | X      | Translation and rotation                                                          |
-| [TranslateRotateFixed](api.md#translaterotatefixed)          | X    | X       | X          |             | X          | X      | Translation and rotation                                                          |
-| [TranslateRotateRescale](api.md#translaterotaterescale)        | X    | †       |            | X           | X          | X      | Translation, rotation, rescaling                                                  |
-| [TranslateRotateRescaleByPlane](api.md#translaterotaterescalebyplane) |      | X       | X          | X           | X          | X      | Translation, rotation, rescaling, independently for lowest-variance dimension     |
-| [TranslateRotateRescaleFixed](api.md#translaterotaterescalefixed)   | X    | X       | X          |             | X          | X      | Translation, rotation, rescaling                                                  |
-| [FlipFixed](api.md#flipfixed)                     | X    | X       | X          |             | X          | X      | Flip across an axis                                                               |
-| [ShearFixed](api.md#shearfixed)                    | X    | X       | X          |             | X          | X      | Apply shear along a plane                                                         |
-| [MatrixFixed](api.md#matrixfixed)                   | X    | X       | X          |             | X          | X      | Directly enter an augmented matrix                                                |
-| [Rescale](api.md#rescale)                       | X    | X       | X          |             | X          | X      | Rescale, i.e. downsample or upsample (lossless)                                   |
+| [TranslateParametric](api.md#translateparametric)                | X    | X       | X          |             | X          | X      | Translation                                                                       |
+| [Rigid](api.md#rigid)               | X    | X       | X          | X           | X          | X      | Translation and rotation                                                          |
+| [RigidParametric](api.md#rigidparametric)          | X    | X       | X          |             | X          | X      | Translation and rotation                                                          |
+| [Affine](api.md#affine)        | X    | †       |            | X           | X          | X      | Translation, rotation, rescaling                                                  |
+| [PlaneConstrainedAffine](api.md#planeconstrainedaffine) |      | X       | X          | X           | X          | X      | Translation, rotation, rescaling, independently for lowest-variance dimension     |
+| [TranslateRotateRescaleParametric](api.md#translaterotaterescaleparametric)   | X    | X       | X          |             | X          | X      | Translation, rotation, rescaling                                                  |
+| [FlipParametric](api.md#flipparametric)                     | X    | X       | X          |             | X          | X      | Flip across an axis                                                               |
+| [ShearParametric](api.md#shearparametric)                    | X    | X       | X          |             | X          | X      | Apply shear along a plane                                                         |
+| [MatrixParametric](api.md#matrixparametric)                   | X    | X       | X          |             | X          | X      | Directly enter an augmented matrix                                                |
+| [RescaleParametric](api.md#rescaleparametric)                       | X    | X       | X          |             | X          | X      | Rescale, i.e. downsample or upsample (lossless)                                   |
 | [Triangulation](api.md#triangulation)                 | X    |         |            | X           | X          |        | Perform piecewise affine transforms between a triangulation of the control points |
-| [Triangulation2D](api.md#triangulation2d)               |      | X       | ‡          | X           | X          |        | Project to a 2D space, perform piecewise 2D transforms, and then return to 3D     |
+| [PlaneConstrainedTriangulation](api.md#planeconstrainedtriangulation)               |      | X       | ‡          | X           | X          |        | Project to a 2D space, perform piecewise 2D transforms, and then return to 3D     |
 | [DistanceWeightedAverageGaussian](api.md#distanceweightedaveragegaussian)       | X    | X       |            | X           |            |        | Compute a displacement field as a distance weighted average of control points     |
 
 
-† It is possible to do a successful [TranslateRotateRescale](api.md#translaterotaterescale) with a pancake
+† It is possible to do a successful [Affine](api.md#affine) with a pancake
 geometry, but make sure to match at least one point at the top and bottom near
 each of the four corners.  Otherwise, shear effects will dominate the transform.
 
-‡ When using [Triangulation2D](api.md#triangulation2d) with a movable image that has a rice paper
+‡ When using [PlaneConstrainedTriangulation](api.md#planeconstrainedtriangulation) with a movable image that has a rice paper
 geometry, it is generally more effective to set the rice paper image as the
 target image when performing the alignment.
 
@@ -162,7 +162,7 @@ There are two important methods:
 
 ### Examples
 
-As a simple example, let's consider [TranslateFixed](api.md#translatefixed).  Here we show how to
+As a simple example, let's consider [TranslateParametric](api.md#translateparametric).  Here we show how to
 transform points, as well as perform a composition of two transforms.
 
 ``` python
@@ -170,12 +170,12 @@ import numpy as np
 import castalign as ca
 
 # Example 1
-t1 = ca.TranslateFixed(x=3, y=4, z=5)
+t1 = ca.TranslateParametric(x=3, y=4, z=5)
 assert np.all(t1.transform([10, 20, 30]) == [15, 24, 33])
 assert np.all(t1.transform([[10, 20, 30], [40, 50, 60]]) == [[15, 24, 33], [45, 54, 63]])
 
 # Example 2
-t2 = ca.TranslateFixed(z=1, y=1, x=1)
+t2 = ca.TranslateParametric(z=1, y=1, x=1)
 t = t1 + t2
 assert np.all(t.transform([10, 20, 30]) == [16, 25, 34])
 
@@ -193,7 +193,7 @@ im = cells3d()[:,1]
 
 # Define the Transform and apply it to the image
 import castalign as ca
-t = ca.TranslateRotateFixed(zrotate=30, x=60)
+t = ca.RigidParametric(zrotate=30, x=60)
 im_rotate = t.transform_image(im)
 
 # Visualise the result

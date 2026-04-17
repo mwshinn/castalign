@@ -180,7 +180,7 @@ class Transform:
         """
         # First, if we have an ndarray_shifted object, shift it first with another transform.
         if isinstance(img, ndarray_shifted) and np.any(img.origin != np.asarray([0,0,0])):
-            shift = TranslateFixed(z=img.origin[0], y=img.origin[1], x=img.origin[2])
+            shift = TranslateParametric(z=img.origin[0], y=img.origin[1], x=img.origin[2])
             return (shift + self).transform_image(np.asarray(img), output_size=output_size, labels=labels, force_size=force_size)
         # Housekeeping
         if labels is None:
@@ -242,7 +242,7 @@ class Transform:
             with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
                 for inds, block in pool.map(_process_chunk, chunker(zcoords, ycoords, xcoords, chunksize=4_000_000)):
                     output[inds] = block
-        return ndarray_shifted(output, origin=origin, only_if_necessary=True) # Added -origin from origin due to TranslateFixed + Rescale on a ndarray_shifted but not sure if this is the right spot
+        return ndarray_shifted(output, origin=origin, only_if_necessary=True) # Added -origin from origin due to TranslateParametric + Rescale on a ndarray_shifted but not sure if this is the right spot
     @staticmethod
     def pretransform(*args, **kwargs):
         """Default fixed transform, applied before this transform is applied.
@@ -321,7 +321,7 @@ class AffineTransform:
         return self.__class__(points_start=self.points_end, points_end=self.points_start, **self.params)
 
 # TODO improve optimisation with the jacobian
-class PointTransformNoInverse(PointTransform):
+class PointTransformNoAnalyticInverse(PointTransform):
     """For transforms which do not have an analytic inverse.
 
     Requires subclass to have {"invert": False} as a parameter.
@@ -361,9 +361,27 @@ class PointTransformNoInverse(PointTransform):
     def invert(self):
         return self.__class__(points_start=self.points_end, points_end=self.points_start, invert=(not self.params["invert"]))
 
-class TranslateRotate(AffineTransform,PointTransform):
-    NAME = "Translate and rotate"
-    SHORTCUT_KEY = "T"
+########## Transforms ##########
+
+class Identity(AffineTransform,Transform):
+    NAME = "No transform"
+    def _fit(self):
+        self.matrix = np.eye(3)
+        self.shift = np.zeros(3)
+    def _transform(self, points):
+        return points
+    def invert(self):
+        return self.__class__()
+    def transform_image(self, image, output_size=None, labels=None, force_size=True):
+        """More efficient implementation of image transformation"""
+        # TODO This doesn't work for different output_size values
+        if output_size is not None:
+            return super().transform_image(image, output_size=output_size, labels=labels, force_size=force_size)
+        return image
+
+class Rigid(AffineTransform,PointTransform):
+    NAME = "Rigid"
+    SHORTCUT_KEY = "R"
     SORT_WEIGHT = -99
     def _fit(self):
         demeaned_start = self.points_start - np.mean(self.points_start, axis=0)
@@ -372,7 +390,74 @@ class TranslateRotate(AffineTransform,PointTransform):
         self.matrix = U@V
         self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
 
-class TranslateRotateRescaleByPlane(AffineTransform,PointTransform):
+class RigidParametric(AffineTransform,Transform):
+    NAME = "Rigid"
+    SHORTCUT_KEY = "r"
+    SORT_WEIGHT = -99
+    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0, "zrotate": 0.0, "yrotate": 0.0, "xrotate": 0.0, "invert": False}
+    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    def _fit(self):
+        self.matrix = rotation_matrix(self.params["zrotate"], self.params["yrotate"], self.params["xrotate"])
+        if self.params['invert']:
+            self.matrix = self.matrix.T
+        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
+    def invert(self):
+        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ self.matrix.T
+        return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], invert=(not self.params['invert']))
+
+class Affine(AffineTransform,PointTransform):
+    NAME = "Affine"
+    SHORTCUT_KEY = "A"
+    SORT_WEIGHT = -97
+    DEFAULT_PARAMETERS = {"invert": False}
+    def _fit(self):
+        if self.params['invert']:
+            _start = self.points_end
+            _end = self.points_start
+        else:
+            _start = self.points_start
+            _end = self.points_end
+        start = np.hstack([np.ones((_start.shape[0],1)), _start])
+        reg_coefs = np.linalg.inv(start.T @ start) @ start.T @ _end
+        self.matrix = reg_coefs[1:]
+        if self.params['invert']:
+            self.matrix = np.linalg.inv(self.matrix)
+        self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
+    def invert(self):
+        return self.__class__(points_start=self.points_end, points_end=self.points_start, invert=(not self.params["invert"]))
+
+class AffineParametric(AffineTransform,Transform):
+    NAME = "Affine"
+    SHORTCUT_KEY = "a"
+    SORT_WEIGHT = -94
+    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0, "zrotate": 0.0, "yrotate": 0.0, "xrotate": 0.0, "zscale": 1.0, "yscale": 1.0, "xscale": 1.0, "yzshear": 0.0, "xzshear": 0.0, "xyshear": 0.0, "invert": False}
+    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    def _fit(self):
+        self.matrix = rotation_matrix(self.params["zrotate"], self.params["yrotate"], self.params["xrotate"]) @ np.asarray([[self.params["zscale"], 0, 0], [0, self.params["yscale"], 0], [0, 0, self.params["xscale"]]]) @ np.asarray([[1, 0, 0], [self.params["yzshear"], 1, 0], [self.params["xzshear"], self.params["xyshear"], 1]])
+        if self.params["invert"]:
+            self.matrix = np.linalg.inv(self.matrix)
+        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
+    def invert(self):
+        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ np.linalg.inv(self.matrix)
+        return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], yzshear=self.params["yzshear"], xzshear=self.params["xzshear"], xyshear=self.params["xyshear"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], invert=(not self.params["invert"]))
+
+class MatrixParametric(AffineTransform,Transform):
+    """Directly use a transformation matrix.  Does not check to make sure the matrix is valid, use at your own risk!"""
+    NAME = "Transformation matrix"
+    DEFAULT_PARAMETERS = {"a11": 1, "a12": 0, "a13": 0, "a21": 0, "a22": 1, "a23": 0, "a31": 0, "a32": 0, "a33": 1, "x": 0, "y": 0, "z": 0}
+    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    SHORTCUT_KEY = "m"
+    SORT_WEIGHT = -90
+    def _fit(self):
+        p = lambda num : self.params[f"a{num}"]
+        self.matrix = np.asarray([[p(11), p(12), p(13)], [p(21), p(22), p(23)], [p(31), p(32), p(33)]])
+        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
+    def invert(self):
+        p = lambda num : self.params[f"a{num}"]
+        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ self.matrix.T
+        return self.__class__(a11=p(11), a12=p(21), a13=p(31), a21=p(12), a22=p(22), a23=p(32), a31=p(13), a32=p(23), a33=p(33), z=-newzyx[0], y=-newzyx[1], x=-newzyx[2])
+
+class PlaneConstrainedAffine(AffineTransform,PointTransform):
     """Translate, Rotate, and Rescale for planes (e.g., sections)
 
     We do not want to perform a linear regression from starting points to ending
@@ -384,7 +469,7 @@ class TranslateRotateRescaleByPlane(AffineTransform,PointTransform):
     another separately for the lowest-variance dimension.
 
     """
-    NAME = "Translate, rotate, and rescale along a plane"
+    NAME = "Plane-constrained affine"
     SHORTCUT_KEY = "P"
     SORT_WEIGHT = -96
     DEFAULT_PARAMETERS = {"invert": False}
@@ -418,55 +503,7 @@ class TranslateRotateRescaleByPlane(AffineTransform,PointTransform):
     def invert(self):
         return self.__class__(points_start=self.points_end, points_end=self.points_start, invert=(not self.params["invert"]))
 
-class TranslateRotateRescale(AffineTransform,PointTransform):
-    NAME = "Translate, rotate, and rescale"
-    SHORTCUT_KEY = "R"
-    SORT_WEIGHT = -97
-    DEFAULT_PARAMETERS = {"invert": False}
-    def _fit(self):
-        if self.params['invert']:
-            _start = self.points_end
-            _end = self.points_start
-        else:
-            _start = self.points_start
-            _end = self.points_end
-        start = np.hstack([np.ones((_start.shape[0],1)), _start])
-        reg_coefs = np.linalg.inv(start.T @ start) @ start.T @ _end
-        self.matrix = reg_coefs[1:]
-        if self.params['invert']:
-            self.matrix = np.linalg.inv(self.matrix)
-        self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
-    def invert(self):
-        return self.__class__(points_start=self.points_end, points_end=self.points_start, invert=(not self.params["invert"]))
-
-class TranslateRotate2D(AffineTransform,PointTransform): # Deprecated
-    NAME = "Translate and rotate in 2D only"
-    def _fit(self):
-        demeaned_start = self.points_start - np.mean(self.points_start, axis=0)
-        demeaned_end = self.points_end - np.mean(self.points_end, axis=0)
-        U,S,V = np.linalg.svd(demeaned_start[:,1:3].T @ demeaned_end[:,1:3])
-        corner_matrix = U@V
-        self.matrix = np.vstack([[[1, 0, 0]], np.hstack([[[0],[0]], corner_matrix])])
-        self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
-
-class Translate(AffineTransform,PointTransform):
-    NAME = "Translate"
-    SORT_WEIGHT = -100
-    def _fit(self):
-        self.matrix = np.eye(3)
-        self.shift = np.mean(self.points_start - self.points_end, axis=0)
-
-class Flip(AffineTransform,Transform): # Deprecated
-    NAME = "Flip"
-    DEFAULT_PARAMETERS = {"z": False, "y": False, "x": False, "zthickness": 0, "ythickness": 0, "xthickness": 0}
-    def _fit(self):
-        sign = lambda x : -1 if self.params[x] else 1
-        self.matrix = np.asarray([[sign("z"), 0, 0], [0, sign("y"), 0], [0, 0, sign("x")]])
-        self.shift = np.asarray([max(0, self.params[c+"thickness"]-1)*int(self.params[c]) for c in ["z", "y", "x"]])
-    def invert(self):
-        return self
-
-class FlipFixed(AffineTransform,Transform):
+class FlipParametric(AffineTransform,Transform):
     NAME = "Flip"
     DEFAULT_PARAMETERS = {"z": False, "y": False, "x": False, "zthickness": 0, "ythickness": 0, "xthickness": 0}
     def _fit(self):
@@ -476,107 +513,10 @@ class FlipFixed(AffineTransform,Transform):
     def invert(self):
         return self
 
-class TranslateFixed(AffineTransform,Transform):
-    NAME = "Translate"
-    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0}
-    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
-    def _fit(self):
-        self.matrix = np.eye(3)
-        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
-    def invert(self):
-        return self.__class__(x=-self.params["x"], y=-self.params["y"], z=-self.params["z"])
-
-class TranslateRotateFixed(AffineTransform,Transform):
-    NAME = "Translate and rotate"
-    SHORTCUT_KEY = "t"
-    SORT_WEIGHT = -99
-    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0, "zrotate": 0.0, "yrotate": 0.0, "xrotate": 0.0, "invert": False}
-    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
-    def _fit(self):
-        self.matrix = rotation_matrix(self.params["zrotate"], self.params["yrotate"], self.params["xrotate"])
-        if self.params['invert']:
-            self.matrix = self.matrix.T
-        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
-    def invert(self):
-        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ self.matrix.T
-        return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], invert=(not self.params['invert']))
-
-class TranslateRotateRescaleFixed(AffineTransform,Transform):
-    NAME = "Translate, rotate, and rescale"
-    SHORTCUT_KEY = "r"
-    SORT_WEIGHT = -98
-    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0, "zrotate": 0.0, "yrotate": 0.0, "xrotate": 0.0, "zscale": 1.0, "yscale": 1.0, "xscale": 1.0, "invert": False}
-    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
-    def _fit(self):
-        self.matrix = rotation_matrix(self.params["zrotate"], self.params["yrotate"], self.params["xrotate"]) @ np.asarray([[self.params["zscale"], 0, 0], [0, self.params["yscale"], 0], [0, 0, self.params["xscale"]]])
-        if self.params['invert']:
-            self.matrix = np.linalg.inv(self.matrix)
-        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
-    def invert(self):
-        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ np.linalg.inv(self.matrix)
-        return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], invert=(not self.params['invert']))
-
-class TranslateRotateRescale2DFixed(AffineTransform,Transform): # Deprecated
-    DEFAULT_PARAMETERS = {"y": 0.0, "x": 0.0, "rotate": 0.0, "scale": 1.0}
-    GUI_DRAG_PARAMETERS = [None, "y", "x"]
-    def _fit(self):
-        self.matrix = rotation_matrix(self.params["rotate"], 0, 0) @ np.asarray([[1, 0, 0], [0, self.params["scale"], 0], [0, 0, self.params["scale"]]])
-        self.shift = np.asarray([0, -self.params["y"], -self.params["x"]])
-    def invert(self):
-        newzyx = [0, self.params["y"], self.params["x"]] @ self.matrix.T
-        return self.__class__(rotate=-self.params["rotate"], y=-newzyx[1], x=-newzyx[2], scale=1/self.params["scale"])
-
-class ShearFixed(AffineTransform,Transform):
-    NAME = "Shear"
-    DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0, "zshift": 0, "yshift": 0, "xshift": 0}
-    SHORTCUT_KEY = "z"
-    GUI_DRAG_PARAMETERS = ["zshift", "yshift", "xshift"]
-    SORT_WEIGHT = -95
-    def _fit(self):
-        self.shift = np.zeros(3)
-        self.shift = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]])
-        self.matrix = np.asarray([[1, 0, 0], [self.params["yzshear"], 1, 0], [self.params["xzshear"], self.params["xyshear"], 1]])
-    def invert(self):
-        s = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]]) @ np.asarray([[1, 0, 0], [-self.params["yzshear"], 1, 0], [self.params["yzshear"]*self.params["xyshear"]-self.params["xzshear"], -self.params["xyshear"], 1]])
-        return self.__class__(yzshear=-self.params["yzshear"], xzshear=self.params["xyshear"]*self.params["yzshear"]-self.params["xzshear"], xyshear=-self.params["xyshear"], zshift=s[0], yshift=s[1], xshift=s[2])
-
-Shear = ShearFixed
-
-class MatrixFixed(AffineTransform,Transform):
-    """Directly use a transformation matrix.  Does not check to make sure the matrix is valid, use at your own risk!"""
-    NAME = "Transformation matrix"
-    DEFAULT_PARAMETERS = {"a11": 1, "a12": 0, "a13": 0, "a21": 0, "a22": 1, "a23": 0, "a31": 0, "a32": 0, "a33": 1, "x": 0, "y": 0, "z": 0}
-    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
-    SHORTCUT_KEY = "m"
-    SORT_WEIGHT = -90
-    def _fit(self):
-        p = lambda num : self.params[f"a{num}"]
-        self.matrix = np.asarray([[p(11), p(12), p(13)], [p(21), p(22), p(23)], [p(31), p(32), p(33)]])
-        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
-    def invert(self):
-        p = lambda num : self.params[f"a{num}"]
-        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ self.matrix.T
-        return self.__class__(a11=p(11), a12=p(21), a13=p(31), a21=p(12), a22=p(22), a23=p(32), a31=p(13), a32=p(23), a33=p(33), z=-newzyx[0], y=-newzyx[1], x=-newzyx[2])
-
-class Identity(AffineTransform,Transform):
-    NAME = "No transform"
-    def _fit(self):
-        self.matrix = np.eye(3)
-        self.shift = np.zeros(3)
-    def _transform(self, points):
-        return points
-    def invert(self):
-        return self.__class__()
-    def transform_image(self, image, output_size=None, labels=None, force_size=True):
-        """More efficient implementation of image transformation"""
-        # TODO This doesn't work for different output_size values
-        if output_size is not None:
-            return super().transform_image(image, output_size=output_size, labels=labels, force_size=force_size)
-        return image
-
-class Rescale(AffineTransform,Transform):
+class RescaleParametric(AffineTransform,Transform):
     NAME = "Rescale"
     DEFAULT_PARAMETERS = {"z": 1.0, "y": 1.0, "x": 1.0}
+    SHORTCUT_KEY = "z"
     def _fit(self):
         self.matrix = np.diag([self.params["z"], self.params["y"], self.params["x"]])
         self.shift = np.asarray([0, 0, 0])
@@ -661,7 +601,7 @@ class Triangulation(PointTransform):
     def invert(self):
         return self.__class__(invert=(not self.params["invert"]), points_start=self.points_end, points_end=self.points_start)
 
-class Triangulation2D(PointTransform):
+class PlaneConstrainedTriangulation(PointTransform):
     """Using a mesh/triangulation to deform the volume in two dimensions.
 
     This is the recommended nonlinear transform for any image that looks like a
@@ -677,7 +617,7 @@ class Triangulation2D(PointTransform):
     to each.
 
     """
-    NAME = "Nonlinear projected triangulation"
+    NAME = "Plane-constrained triangulation"
     SHORTCUT_KEY = "N"
     SORT_WEIGHT = 99
     DEFAULT_PARAMETERS = {"invert": True, "normal_z": 0.0, "normal_y": 0.0, "normal_x": 0.0} # Start with inverted because inverted is slower for points and faster for images
@@ -773,85 +713,7 @@ class Triangulation2D(PointTransform):
     def invert(self):
         return self.__class__(invert=(not self.params["invert"]), points_start=self.points_end, points_end=self.points_start, normal_z=self.params["normal_z"], normal_y=self.params["normal_y"], normal_x=self.params["normal_x"])
 
-
-# This doesn't work very well
-class DistanceWeightedAverageGaussian(PointTransformNoInverse): # Deprecated
-    DEFAULT_PARAMETERS = {"extent": 1, "invert": False}
-    def _transform(self, points, points_start, points_end):
-        points = np.asarray(points, dtype="float")
-        baseline = np.zeros_like(points[:,0])
-        pos = np.zeros_like(points)
-        for i in range(0, len(points_start)):
-            mvn = scipy.stats.multivariate_normal(points_start[i], np.eye(3)*self.params["extent"])
-            baseline += mvn.pdf(points)
-            for j in range(0, 3):
-                pos[:,j] += mvn.pdf(points)*(points_end[i][j]-points_start[i][j])
-        epsilon = 1e-100 # For numerical stability
-        pos += np.mean(points_end-points_start, axis=0, keepdims=True)*epsilon
-        pos /= (baseline[:,None] + epsilon)
-        return points + pos
-
-# import numba
-# class DistanceWeightedAverage(PointTransformNoInverse):
-#     """Implements a weighted average according to inverse sequare distance.
-
-#     The code here is highly optimised for speed, and is really hard to decipher.
-#     The equation is:
-
-#         \\sum_i v_i/w_i + \\epsilon \\bar{v}
-#         -----------------------------------
-#                      w_i
-
-#     where w_i = 1/(d_i^2 + \\epsilon), d is the distance of the test point to the
-#     point i, and v_i is the end minus the start for point pair i, where \\bar{v}
-#     is the mean across all points.
-
-#     I think it might be a bug to have the epsilon multiplied by \\bar{v} (this
-#     makes it essentially always zero), and instead I actually want the same term
-#     in the denominator as well, but it works so who cares.
-
-#     """
-#     NAME = "Nonlinear distance weighted average"
-#     DEFAULT_PARAMETERS = {"invert": False}
-#     @staticmethod
-#     @numba.jit(nopython=True, parallel=True)
-#     def _loop(points, points_start, points_end, epsilon):
-#         baseline = np.zeros_like(points[:,0])
-#         pos = np.zeros_like(points)
-#         sumsquare = np.sum(np.square(points), axis=1)
-#         for i in range(0, len(points_start)):
-#             dist = 1/(sumsquare - 2*points[:,0]*points_start[i][0] - 2*points[:,1]*points_start[i][1] - 2*points[:,2]*points_start[i][2] + (np.sum(np.square(points_start[i]))+epsilon))
-#             baseline += dist
-#             for j in range(0, 3):
-#                 pos[:,j] += dist*(points_end[i][j]-points_start[i][j])
-#         return pos,baseline
-#     def _transform(self, points, points_start, points_end):
-#         if points.shape[0] > 20:
-#             print("Array transform")
-#             return self._transform_array(points, points_start, points_end)
-#         #_t = time.time()
-#         points = np.asarray(points, dtype="float")
-#         baseline = np.zeros_like(points[:,0])
-#         pos = np.zeros_like(points)
-#         epsilon = 1e-200 # For numerical stability
-#         sumsquare = np.sum(np.square(points), axis=1)
-#         for i in range(0, len(points_start)):
-#             dist = 1/(sumsquare - 2*points[:,0]*points_start[i][0] - 2*points[:,1]*points_start[i][1] - 2*points[:,2]*points_start[i][2] + (np.sum(np.square(points_start[i]))+epsilon))
-#             baseline += dist
-#             for j in range(0, 3):
-#                 pos[:,j] += dist*(points_end[i][j]-points_start[i][j])
-#         pos += np.mean(points_end-points_start, axis=0, keepdims=True)*epsilon
-#         pos /= baseline[:,None]
-#         #print("Time:", time.time()-_t)
-#         return points + pos
-#     def _transform_array(self, points, points_start, points_end):
-#         #_t = time.time()
-#         points = np.asarray(points, dtype="float", order="F")
-#         epsilon = 1e-200 # For numerical stability
-#         pos,baseline = self._loop(points, points_start, points_end, epsilon)
-#         pos += np.mean(points_end-points_start, axis=0, keepdims=True)*epsilon
-#         pos /= baseline[:,None]
-#         return points + pos
+########## Composing transforms ##########
 
 def compose_transforms(a, b):
     # Skip for the identity transform
@@ -929,3 +791,104 @@ def compose_transforms(a, b):
                     return a
             return ComposedPartial
     raise NotImplementedError("Invalid composition")
+
+
+########## Deprecated ##########
+
+
+
+class TranslateRotate2D(AffineTransform,PointTransform): # Deprecated
+    NAME = "Translate and rotate in 2D only"
+    def _fit(self):
+        demeaned_start = self.points_start - np.mean(self.points_start, axis=0)
+        demeaned_end = self.points_end - np.mean(self.points_end, axis=0)
+        U,S,V = np.linalg.svd(demeaned_start[:,1:3].T @ demeaned_end[:,1:3])
+        corner_matrix = U@V
+        self.matrix = np.vstack([[[1, 0, 0]], np.hstack([[[0],[0]], corner_matrix])])
+        self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
+
+class Translate(AffineTransform,PointTransform):
+    NAME = "Translate"
+    SORT_WEIGHT = -100
+    def _fit(self):
+        self.matrix = np.eye(3)
+        self.shift = np.mean(self.points_start - self.points_end, axis=0)
+
+class Flip(AffineTransform,Transform): # Deprecated
+    NAME = "Flip"
+    DEFAULT_PARAMETERS = {"z": False, "y": False, "x": False, "zthickness": 0, "ythickness": 0, "xthickness": 0}
+    def _fit(self):
+        sign = lambda x : -1 if self.params[x] else 1
+        self.matrix = np.asarray([[sign("z"), 0, 0], [0, sign("y"), 0], [0, 0, sign("x")]])
+        self.shift = np.asarray([max(0, self.params[c+"thickness"]-1)*int(self.params[c]) for c in ["z", "y", "x"]])
+    def invert(self):
+        return self
+
+class TranslateParametric(AffineTransform,Transform):
+    NAME = "Translate"
+    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0}
+    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    def _fit(self):
+        self.matrix = np.eye(3)
+        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
+    def invert(self):
+        return self.__class__(x=-self.params["x"], y=-self.params["y"], z=-self.params["z"])
+
+class TranslateRotateRescaleParametric(AffineTransform,Transform): # Deprecated
+    NAME = "Translate, rotate, and rescale"
+    #SHORTCUT_KEY = "r"
+    SORT_WEIGHT = -98
+    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0, "zrotate": 0.0, "yrotate": 0.0, "xrotate": 0.0, "zscale": 1.0, "yscale": 1.0, "xscale": 1.0, "invert": False}
+    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    def _fit(self):
+        self.matrix = rotation_matrix(self.params["zrotate"], self.params["yrotate"], self.params["xrotate"]) @ np.asarray([[self.params["zscale"], 0, 0], [0, self.params["yscale"], 0], [0, 0, self.params["xscale"]]])
+        if self.params['invert']:
+            self.matrix = np.linalg.inv(self.matrix)
+        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
+    def invert(self):
+        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ np.linalg.inv(self.matrix)
+        return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], invert=(not self.params['invert']))
+
+class TranslateRotateRescale2DParametric(AffineTransform,Transform): # Deprecated
+    DEFAULT_PARAMETERS = {"y": 0.0, "x": 0.0, "rotate": 0.0, "scale": 1.0}
+    GUI_DRAG_PARAMETERS = [None, "y", "x"]
+    def _fit(self):
+        self.matrix = rotation_matrix(self.params["rotate"], 0, 0) @ np.asarray([[1, 0, 0], [0, self.params["scale"], 0], [0, 0, self.params["scale"]]])
+        self.shift = np.asarray([0, -self.params["y"], -self.params["x"]])
+    def invert(self):
+        newzyx = [0, self.params["y"], self.params["x"]] @ self.matrix.T
+        return self.__class__(rotate=-self.params["rotate"], y=-newzyx[1], x=-newzyx[2], scale=1/self.params["scale"])
+
+class ShearParametric(AffineTransform,Transform): # Deprecated
+    NAME = "Shear"
+    DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0, "zshift": 0, "yshift": 0, "xshift": 0}
+    # SHORTCUT_KEY = "z"
+    GUI_DRAG_PARAMETERS = ["zshift", "yshift", "xshift"]
+    SORT_WEIGHT = -95
+    def _fit(self):
+        self.shift = np.zeros(3)
+        self.shift = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]])
+        self.matrix = np.asarray([[1, 0, 0], [self.params["yzshear"], 1, 0], [self.params["xzshear"], self.params["xyshear"], 1]])
+    def invert(self):
+        s = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]]) @ np.asarray([[1, 0, 0], [-self.params["yzshear"], 1, 0], [self.params["yzshear"]*self.params["xyshear"]-self.params["xzshear"], -self.params["xyshear"], 1]])
+        return self.__class__(yzshear=-self.params["yzshear"], xzshear=self.params["xyshear"]*self.params["yzshear"]-self.params["xzshear"], xyshear=-self.params["xyshear"], zshift=s[0], yshift=s[1], xshift=s[2])
+
+# This doesn't work very well
+class DistanceWeightedAverageGaussian(PointTransformNoAnalyticInverse): # Deprecated
+    DEFAULT_PARAMETERS = {"extent": 1, "invert": False}
+    def _transform(self, points, points_start, points_end):
+        points = np.asarray(points, dtype="float")
+        baseline = np.zeros_like(points[:,0])
+        pos = np.zeros_like(points)
+        for i in range(0, len(points_start)):
+            mvn = scipy.stats.multivariate_normal(points_start[i], np.eye(3)*self.params["extent"])
+            baseline += mvn.pdf(points)
+            for j in range(0, 3):
+                pos[:,j] += mvn.pdf(points)*(points_end[i][j]-points_start[i][j])
+        epsilon = 1e-100 # For numerical stability
+        pos += np.mean(points_end-points_start, axis=0, keepdims=True)*epsilon
+        pos /= (baseline[:,None] + epsilon)
+        return points + pos
+
+Shear = ShearParametric
+TranslateRotateRescale = Affine # Old name, technically incorrect

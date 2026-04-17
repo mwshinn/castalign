@@ -1,4 +1,4 @@
-from .base import Identity, Translate, Transform, PointTransform, AffineTransform, FlipFixed
+from .base import Identity, Translate, Transform, PointTransform, AffineTransform, FlipParametric
 import numpy as np
 import scipy.ndimage
 import napari
@@ -411,7 +411,7 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
     print(tform)
     return tform
 
-def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
+def align_interactive_text(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
     if start is not None:
         print("The `start` parameter is deprecated, use `transform` instead")
     if transform is None:
@@ -539,7 +539,7 @@ q: quit
                 t = t_hist.pop()
         elif resp == "f":
             im1 = graph.get_image(nodes_movable[0]) if (graph is not None and isinstance(nodes_movable[0], str)) else nodes_movable[0]
-            t = FlipFixed(z=True, zthickness=im1.shape[0]) + t
+            t = FlipParametric(z=True, zthickness=im1.shape[0]) + t
         elif resp == "d":
             if len(refs) > 0:
                 _refs = refs
@@ -580,7 +580,7 @@ q: quit
     print("Transform is:", t)
     return t
 
-def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
+def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
     from qtpy import QtWidgets, QtCore
 
     if start is not None:
@@ -784,7 +784,7 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
         nonlocal t
         _push_history()
         im1 = graph.get_image(nodes_movable[0]) if (graph is not None and isinstance(nodes_movable[0], str)) else nodes_movable[0]
-        t = FlipFixed(z=True, zthickness=im1.shape[0]) + t
+        t = FlipParametric(z=True, zthickness=im1.shape[0]) + t
         _set_status("")
         _refresh()
 

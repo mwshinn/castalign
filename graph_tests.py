@@ -7,10 +7,10 @@ import numpy as np
 
 # Import the class to be tested
 from castalign import Graph
-from castalign import Identity, TranslateFixed, PointTransformNoInverse, utils
+from castalign import Identity, TranslateParametric, PointTransformNoAnalyticInverse, utils
 import castalign as ca
 
-class InvertibleError(PointTransformNoInverse):
+class InvertibleError(PointTransformNoAnalyticInverse):
     DEFAULT_PARAMETERS = {"extent": 1, "invert": False}
     def _transform(self, points, points_start, points_end):
         return points
@@ -81,13 +81,13 @@ class TestGraph(unittest.TestCase):
         g.add_node("C")
 
         # Add an invertible edge
-        t_ab = TranslateFixed(x=10)
+        t_ab = TranslateParametric(x=10)
         g.add_edge("A", "B", t_ab)
         self.assertIn("B", g.edges["A"])
         self.assertIs(g.edges["A"]["B"], t_ab)
         # Check for automatic inverse
         self.assertIn("A", g.edges["B"])
-        self.assertIsInstance(g.edges["B"]["A"], TranslateFixed)
+        self.assertIsInstance(g.edges["B"]["A"], TranslateParametric)
 
         # Add a non-invertible edge
         t_ac = InvertibleError()
@@ -109,7 +109,7 @@ class TestGraph(unittest.TestCase):
         g_orig.add_node("n2", image=img2)
         g_orig.add_node("n3", image="n1") # Reference node
         g_orig.add_node("n4")
-        g_orig.add_edge("n1", "n2", TranslateFixed(x=5))
+        g_orig.add_edge("n1", "n2", TranslateParametric(x=5))
         g_orig.metadata = {"author": "tester"}
 
         g_orig.save(self.db_path)
@@ -134,7 +134,7 @@ class TestGraph(unittest.TestCase):
         # Test loading of a referenced image
         self.assertEqual(g_loaded.node_images["n3"], "ref:n1")
         # get_image should calculate the transformed image
-        transformed_img = TranslateFixed(x=0).transform_image(img1) # Bogus transform, just for check
+        transformed_img = TranslateParametric(x=0).transform_image(img1) # Bogus transform, just for check
         # With our mocks, the path n1->n3 is empty, so there will be an error
         with self.assertRaises(RuntimeError):
             g_loaded.get_image("n3")
@@ -178,7 +178,7 @@ class TestGraph(unittest.TestCase):
         # Create a fake old .npz file
         name = "OldNPZ"
         nodes = ["A", "B"]
-        edges = repr({'A': {'B': TranslateFixed(x=1)}, 'B': {'A': TranslateFixed(x=1)}})
+        edges = repr({'A': {'B': TranslateParametric(x=1)}, 'B': {'A': TranslateParametric(x=1)}})
         node_images_keys = ["A"]
         # Use our mock compression to get the right format
         img_a_data, img_a_info = utils.compress_image(self._create_sample_image(50))
@@ -209,17 +209,17 @@ class TestGraph(unittest.TestCase):
         g.add_node("C")
         g.add_node("D") # Disconnected
         
-        g.add_edge("A", "B", TranslateFixed(x=10))
-        g.add_edge("B", "C", TranslateFixed(x=5))
+        g.add_edge("A", "B", TranslateParametric(x=10))
+        g.add_edge("B", "C", TranslateParametric(x=5))
 
         # Direct transform
         t_ab = g.get_transform("A", "B")
-        self.assertIsInstance(t_ab, TranslateFixed)
-        self.assertEqual(t_ab, TranslateFixed(x=10))
+        self.assertIsInstance(t_ab, TranslateParametric)
+        self.assertEqual(t_ab, TranslateParametric(x=10))
 
         # Chained transform
         t_ac = g.get_transform("A", "C")
-        self.assertTrue(np.all(t_ac.transform([1, 2, 3]) == ca.TranslateFixed(x=15).transform([1, 2, 3])))
+        self.assertTrue(np.all(t_ac.transform([1, 2, 3]) == ca.TranslateParametric(x=15).transform([1, 2, 3])))
         
         # Identity transform
         t_aa = g.get_transform("A", "A")

@@ -22,7 +22,7 @@ Perform a clockwise rotation (in degrees) about the z, y, and x axes.
 
 **Notes**
 
-- This is used internally by several fixed-parameter transforms such as [TranslateRotateFixed](#translaterotatefixed) and [TranslateRotateRescaleFixed](#translaterotaterescalefixed).
+- This is used internally by several fixed-parameter transforms such as [RigidParametric](#rigidparametric) and [TranslateRotateRescaleParametric](#translaterotaterescaleparametric).
 
 ## Transform
 Base class for all transforms. A [Transform](#transform) maps points and images from a "movable" space into a "base" space. [Transform](#transform) instances can be composed with `+` and saved/loaded from text.
@@ -171,7 +171,7 @@ Apply the transform to an image.
 
 **Notes**
 
-- For `ndarray_shifted` inputs, an internal [TranslateFixed](#translatefixed) is used to adjust non-zero origins.
+- For `ndarray_shifted` inputs, an internal [TranslateParametric](#translateparametric) is used to adjust non-zero origins.
 
 ### Transform.pretransform
 Return a fixed transform to apply before fitting this transform.
@@ -242,7 +242,7 @@ Return an inverse affine transform by swapping points.
 
 - This assumes an affine mapping and may be incorrect for non-affine subclasses.
 
-## PointTransformNoInverse
+## PointTransformNoAnalyticInverse
 Point-based transform without an analytic inverse. Uses numerical inversion.
 
 **Inherits**
@@ -253,7 +253,7 @@ Point-based transform without an analytic inverse. Uses numerical inversion.
 
 - `*args, **kwargs`: Passed to [PointTransform](#pointtransform).
 
-### PointTransformNoInverse.transform
+### PointTransformNoAnalyticInverse.transform
 Apply the transform, numerically inverting if necessary.
 
 **Arguments**
@@ -268,14 +268,14 @@ Apply the transform, numerically inverting if necessary.
 
 - If `params["invert"]` is False, this numerically inverts and is slow for large point sets (raises for >1000 points).
 
-### PointTransformNoInverse.invert
+### PointTransformNoAnalyticInverse.invert
 Return an inverted version of this transform, toggling the `invert` parameter.
 
 **Returns**
 
 - Instance of the same class.
 
-## TranslateRotate
+## Rigid
 Translate and rotate using point matches (SVD-based).
 
 **Inherits**
@@ -287,7 +287,7 @@ Translate and rotate using point matches (SVD-based).
 
 - `points_start`, `points_end`: See [PointTransform](#pointtransform).
 
-## TranslateRotateRescaleByPlane
+## PlaneConstrainedAffine
 Translate, rotate, and rescale using a dominant plane (good for "pancake" images).
 
 **Inherits**
@@ -300,7 +300,7 @@ Translate, rotate, and rescale using a dominant plane (good for "pancake" images
 - `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `invert` (bool, default False): If True, swaps the regression direction and matrix inversion.
 
-## TranslateRotateRescale
+## Affine
 Translate, rotate, and rescale using full 3D regression.
 
 **Inherits**
@@ -346,7 +346,7 @@ Deprecated. Flip along axes using parameters.
 - `z`, `y`, `x` (bool): Whether to flip along each axis.
 - `zthickness`, `ythickness`, `xthickness` (float or int): Axis sizes used to compute the shift when flipping.
 
-## FlipFixed
+## FlipParametric
 Flip along axes using fixed parameters (non-point-based).
 
 **Inherits**
@@ -359,7 +359,7 @@ Flip along axes using fixed parameters (non-point-based).
 - `z`, `y`, `x` (bool): Whether to flip along each axis.
 - `zthickness`, `ythickness`, `xthickness` (float or int): Axis sizes used to compute the shift when flipping.
 
-## TranslateFixed
+## TranslateParametric
 Translate using fixed parameters (non-point-based).
 
 **Inherits**
@@ -371,7 +371,7 @@ Translate using fixed parameters (non-point-based).
 
 - `z`, `y`, `x` (float): Translation offsets.
 
-## TranslateRotateFixed
+## RigidParametric
 Translate and rotate using fixed parameters (non-point-based).
 
 **Inherits**
@@ -385,7 +385,7 @@ Translate and rotate using fixed parameters (non-point-based).
 - `zrotate`, `yrotate`, `xrotate` (float): Rotation angles in degrees.
 - `invert` (bool): If True, uses the transpose of the rotation matrix.
 
-## TranslateRotateRescaleFixed
+## TranslateRotateRescaleParametric
 Translate, rotate, and rescale using fixed parameters (non-point-based).
 
 **Inherits**
@@ -400,7 +400,7 @@ Translate, rotate, and rescale using fixed parameters (non-point-based).
 - `zscale`, `yscale`, `xscale` (float): Scale factors. Must be non-zero to allow inversion.
 - `invert` (bool): If True, inverts the combined matrix.
 
-## TranslateRotateRescale2DFixed
+## TranslateRotateRescale2DParametric
 Deprecated. Translate, rotate, and rescale in 2D only.
 
 **Inherits**
@@ -414,7 +414,7 @@ Deprecated. Translate, rotate, and rescale in 2D only.
 - `rotate` (float): Rotation angle in degrees.
 - `scale` (float): Scale factor. Must be non-zero to allow inversion.
 
-## ShearFixed
+## ShearParametric
 Apply a shear transform using fixed parameters.
 
 **Inherits**
@@ -428,9 +428,9 @@ Apply a shear transform using fixed parameters.
 
 **Notes**
 
-- `Shear` is an alias of `ShearFixed`.
+- `Shear` is an alias of `ShearParametric`.
 
-## MatrixFixed
+## MatrixParametric
 Apply a direct 3x3 transformation matrix plus translation.
 
 **Inherits**
@@ -470,7 +470,7 @@ More efficient image transformation that returns the original image when possibl
 
 - The original image or a transformed image if `output_size` is specified.
 
-## Rescale
+## RescaleParametric
 Uniform or axis-specific rescaling.
 
 **Inherits**
@@ -494,7 +494,7 @@ Piecewise affine transform based on a 3D Delaunay triangulation.
 - `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `invert` (bool, default True): Start in inverse mode because inverse is faster for images.
 
-## Triangulation2D
+## PlaneConstrainedTriangulation
 Piecewise affine transform in a projected 2D space.
 
 **Inherits**
@@ -516,13 +516,13 @@ Deprecated. Nonlinear, numerically inverted transform using a Gaussian distance-
 
 **Inherits**
 
-- [PointTransformNoInverse](#pointtransformnoinverse)
+- [PointTransformNoAnalyticInverse](#pointtransformnoanalyticinverse)
 
 **Arguments**
 
 - `points_start`, `points_end`: See [PointTransform](#pointtransform).
 - `extent` (float): Gaussian standard deviation. Should be positive.
-- `invert` (bool, default False): Controls inversion behavior in [PointTransformNoInverse](#pointtransformnoinverse).
+- `invert` (bool, default False): Controls inversion behavior in [PointTransformNoAnalyticInverse](#pointtransformnoanalyticinverse).
 
 ## compose_transforms
 Compose two transforms or a transform and a transform class.
