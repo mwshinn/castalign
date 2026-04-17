@@ -418,7 +418,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
         transform = start
     _TRANSFORMS_FOR_INTERACTIVE = {}
     _queue = Transform.__subclasses__()
-    _reserved = "fekudsSqxc"
+    _reserved = "fekudsSqxcw"
     while len(_queue) > 0:
         c = _queue.pop()
         if hasattr(c, "SHORTCUT_KEY") and len(c.SHORTCUT_KEY) != 0:
@@ -684,13 +684,13 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
     layout_modify.setVerticalSpacing(6)
     root.addWidget(group_modify)
 
-    group_extend = QtWidgets.QGroupBox("Extend previous point-based transform (x_)")
+    group_extend = QtWidgets.QGroupBox("Extend previous point-based transform")
     layout_extend = QtWidgets.QGridLayout(group_extend)
     layout_extend.setHorizontalSpacing(8)
     layout_extend.setVerticalSpacing(6)
     root.addWidget(group_extend)
 
-    group_convert = QtWidgets.QGroupBox("Convert previous point-based transform (c_)")
+    group_convert = QtWidgets.QGroupBox("Convert previous point-based transform")
     layout_convert = QtWidgets.QGridLayout(group_convert)
     layout_convert.setHorizontalSpacing(8)
     layout_convert.setVerticalSpacing(6)
@@ -838,6 +838,15 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
             _set_status("Saved to graph (not written to disk)", level="info")
         _refresh()
 
+    def _run_save_transform_to_disk():
+        filename, _ = QtWidgets.QFileDialog.getSaveFileName(dlg, "Save transform", "", "Transform files (*.tf *.txt);;All files (*)")
+        if filename is None or len(filename.strip()) == 0:
+            _set_status("Save transform cancelled", level="warning")
+            return
+        t.save(filename)
+        _set_status(f"Saved transform to: {filename}", level="info")
+        _refresh()
+
     def _run_extend_or_convert(mode, key):
         nonlocal _pending_prefix
         _push_history()
@@ -891,6 +900,9 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
             return True
         if ch == "S":
             _run_save(write_to_disk=True)
+            return True
+        if ch == "w":
+            _run_save_transform_to_disk()
             return True
         if ch in "xc":
             _pending_prefix = ch
@@ -948,43 +960,48 @@ def align_interactive_gui(nodes_movable, nodes_fixed, graph=None, transform=None
 
     button_edit = QtWidgets.QPushButton("Edit previous transform (e)")
     button_edit.clicked.connect(_run_edit)
-    layout_modify.addWidget(button_edit, 0, 0)
+    layout_modify.addWidget(button_edit, 1, 0)
     all_buttons.append(button_edit)
 
     button_view = QtWidgets.QPushButton("View (v)")
     button_view.clicked.connect(_run_view)
-    layout_modify.addWidget(button_view, 0, 1)
+    layout_modify.addWidget(button_view, 0, 0)
     all_buttons.append(button_view)
 
     button_remove = QtWidgets.QPushButton("Remove previous transform (k)")
     button_remove.clicked.connect(lambda checked=False: _handle_keypress_char("k"))
-    layout_modify.addWidget(button_remove, 1, 0)
+    layout_modify.addWidget(button_remove, 1, 2)
     all_buttons.append(button_remove)
 
     button_flip = QtWidgets.QPushButton("Flip along z axis (f)")
     button_flip.clicked.connect(_run_flip)
-    layout_modify.addWidget(button_flip, 1, 1)
+    layout_modify.addWidget(button_flip, 0, 2)
     all_buttons.append(button_flip)
 
     button_undo = QtWidgets.QPushButton("Undo (u)")
     button_undo.clicked.connect(_run_undo)
-    layout_modify.addWidget(button_undo, 2, 0)
+    layout_modify.addWidget(button_undo, 1, 1)
     all_buttons.append(button_undo)
 
     button_toggle_refs = QtWidgets.QPushButton("Toggle references on/off (d)")
     button_toggle_refs.clicked.connect(_run_toggle_refs)
-    layout_modify.addWidget(button_toggle_refs, 2, 1)
+    layout_modify.addWidget(button_toggle_refs, 0, 1)
     all_buttons.append(button_toggle_refs)
 
     button_save = QtWidgets.QPushButton("Save to graph (s)")
     button_save.clicked.connect(lambda checked=False: _run_save(write_to_disk=False))
-    layout_modify.addWidget(button_save, 3, 0)
+    layout_modify.addWidget(button_save, 2, 0)
     all_buttons.append(button_save)
 
-    button_save_disk = QtWidgets.QPushButton("Save to graph and disk (S)")
+    button_save_disk = QtWidgets.QPushButton("Save to graph and write to disk (S)")
     button_save_disk.clicked.connect(lambda checked=False: _run_save(write_to_disk=True))
-    layout_modify.addWidget(button_save_disk, 3, 1)
+    layout_modify.addWidget(button_save_disk, 2, 1)
     all_buttons.append(button_save_disk)
+
+    button_save_transform = QtWidgets.QPushButton("Save to disk (w)")
+    button_save_transform.clicked.connect(_run_save_transform_to_disk)
+    layout_modify.addWidget(button_save_transform, 2, 2)
+    all_buttons.append(button_save_transform)
 
     extend_buttons = []
     convert_buttons = []
