@@ -13,17 +13,17 @@ staining (e.g., immunofluorescence), and in vivo imaging.
 
 ## Quick Start
 
-Install dependencies:
+Install with `pip`:
 
 ```bash
-pip install numpy scipy napari magicgui vispy scikit-image imageio imageio-ffmpeg
+pip install castalign
 ```
 
 Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs fit together.
 
 ## Documentation Map
 
-- [Tutorial](tutorial.md): Conceptual overview, examples, and GUIs.
+- [Tutorial](tutorial): Conceptual overview, examples, and GUIs.
 - [Transforms Gallery](transforms_gallery): Visual transform examples with geometry and parameter defaults.
 - [API Reference](api): Public classes and functions.
 - [Contact](contact.md): Questions, bugs, and feedback.
@@ -32,6 +32,7 @@ Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs f
 :maxdepth: 2
 :caption: Contents
 
+self
 tutorial
 transforms_gallery
 api
