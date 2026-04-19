@@ -9,7 +9,20 @@ import shutil
 
 
 class Graph:
+    """Store 3D image nodes and transforms between node spaces.
+
+    Nodes can store image data directly or reference another node's image.
+    Edges store transforms between node coordinate systems.
+    """
+
     def __init__(self, name=""):
+        """Create an empty graph.
+
+        Parameters
+        ----------
+        name : str, optional
+            Graph name.
+        """
         # NOTE: If you change the constructor or internal data structure, you also need to change the load and save methods.
         self.name = name
         self.nodes = [] # List of node names
@@ -32,6 +45,22 @@ class Graph:
         self.node_metadata = {}
 
     def __eq__(self, other):
+        """Compare graph structure and image-node membership.
+
+        Parameters
+        ----------
+        other : object
+            Object to compare.
+
+        Returns
+        -------
+        bool
+            ``True`` if name, nodes, edges, and image-node keys match.
+
+        Notes
+        -----
+        Image array contents are intentionally not compared.
+        """
         # NOTE: This equality check does not compare image data for performance reasons.
         # It only checks if the same nodes have images.
         return (isinstance(other, Graph) and
@@ -40,24 +69,96 @@ class Graph:
                 self.edges == other.edges and
                 set(self.node_images.keys()) == set(other.node_images.keys()))
     def __getitem__(self, item):
+        """Get an image or transform using indexing syntax.
+
+        This is shorthand for calling g.get_image() or g.get_transform().
+
+        Parameters
+        ----------
+        item : str or slice
+            - ``str``: node name, returns image for that node.
+            - ``slice`` ``"from":"to"``: returns transform from from->to.
+
+        Returns
+        -------
+        ndarray or transform.Transform
+            Node image or composed transform.
+
+        Examples
+        --------
+        >>> g["session1"] # Returns the image
+        >>> g["session1":"session2"] # Return a transform from session1 to session2
+        """
         if isinstance(item, str) and item in self.nodes:
             return self.get_image(item)
         if isinstance(item, slice) and isinstance(item.start, str) and isinstance(item.stop, str) and item.step is None and item.start in self.nodes and item.stop in self.nodes:
             return self.get_transform(item.start, item.stop)
         raise ValueError(f"Graph does not have the node '{item}'")
     def __setitem__(self, name, value):
+        """Set node image or edge transform using indexing syntax.
+
+        This is shorthand for calling add_node or add_edge.
+
+        Parameters
+        ----------
+        name : str or slice
+            - ``str``: node name to add.
+            - ``slice`` ``"from":"to"``: edge to set.
+        value : ndarray, str, or transform.Transform
+            Node image/reference for node assignment, or transform for edge
+            assignment.
+
+        Examples
+        --------
+        >>> g["session2"] = vol # Creates a new node with image data vol
+        >>> g["session1":"session2"] = tform # Creates an edge from "session1" to "session2"
+        """
         if isinstance(name, str):
             return self.add_node(name, image=value)
         if isinstance(name, slice) and isinstance(name.start, str) and isinstance(name.stop, str) and name.step is None:
             return self.add_edge(name.start, name.stop, value)
         raise ValueError(f"A graph cannot assign the item '{item}'")
     def __delitem__(self, name):
+        """Delete a node or edge using indexing syntax.
+
+        Parameters
+        ----------
+        name : str or slice
+            - ``str``: node to remove.
+            - ``slice`` ``"from":"to"``: edge to remove.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> del g["session1"] # Remove the node session1
+        >>> del g["session1":"session2"] # Remove the edge from session1 to session2
+        """
         if isinstance(name, str):
             return self.remove_node(name)
         if isinstance(name, slice) and isinstance(name.start, str) and isinstance(name.stop, str) and name.step is None:
             return self.remove_edge(name.start, name.stop)
         
     def __contains__(self, item):
+        """Check whether a node or edge exists.
+
+        Parameters
+        ----------
+        item : str or tuple/list of length 2
+            Node name, or edge endpoints ``(from_node, to_node)``.
+
+        Returns
+        -------
+        bool
+            ``True`` when the node/edge exists.
+
+        Examples
+        --------
+        >>> "session1" in g # Returns True if "session1" is a node in the graph
+        >>> ("session1", "session2") in g # Returns True if "session1" and "session2" are directly connected by an edge
+        """
         if isinstance(item, str):
             return item in self.nodes
         elif isinstance(item, (tuple, list)) and len(item) == 2:
@@ -65,6 +166,21 @@ class Graph:
         raise ValueError(f"A graph cannot contain the item '{item}'")
 
     def save(self, filename=None):
+        """Save the graph.
+
+        Parameters
+        ----------
+        filename : str or path-like or None, optional
+            Output path. If omitted, uses ``self.filename``.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        If no extension is provided, ``.db`` is appended.
+        """
         assert filename is None or not os.path.isfile(filename), "Save path already exists"
         if filename and self.filename and os.path.isfile(self.filename):
             shutil.copy(self.filename, filename)
@@ -161,6 +277,18 @@ class Graph:
 
     @classmethod
     def load(cls, filename):
+        """Load a graph.
+
+        Parameters
+        ----------
+        filename : str or path-like
+            Input graph file.
+
+        Returns
+        -------
+        Graph
+            Loaded graph.
+        """
         filename = str(filename)
         if not os.path.exists(filename):
             raise FileNotFoundError(f"No such file or directory: '{filename}'")
@@ -169,6 +297,20 @@ class Graph:
         return cls._load_sqlite(filename)
     @classmethod
     def _load_sqlite(cls, filename):
+        """Load graph data from SQLite.
+
+        Do not call directly, use load() instead.
+
+        Parameters
+        ----------
+        filename : str or path-like
+            SQLite graph file.
+
+        Returns
+        -------
+        Graph
+            Loaded graph with lazy image placeholders.
+        """
         con = sqlite3.connect(f'file:{filename}?mode=ro', uri=True)
         cur = con.cursor()
         try:
@@ -199,6 +341,21 @@ class Graph:
 
     @classmethod
     def _load_npz(cls, filename):
+        """Load graph data from legacy NPZ format.
+
+        Do not call directly, use load() instead.
+
+        Parameters
+        ----------
+        filename : str or path-like
+            Legacy NPZ graph file.
+
+        Returns
+        -------
+        Graph
+            Loaded graph. ``filename`` is rewritten to the matching ``.db``
+            path for subsequent saves.
+        """
         print(f"Loading legacy NPZ file: {filename}. It will be converted to the new SQLite format.")
         f = np.load(filename, allow_pickle=True)
         g = cls(str(f['name']))
@@ -238,6 +395,37 @@ class Graph:
         return g
     
     def add_node(self, name, image=None, compression="normal", metadata=None):
+        """Add a node, optionally with image data or an image reference.
+
+        Setting the image to be a reference (the name of another node with image
+        data) can be used if the image data for this node can be computed from
+        that of another node.  For instance, one node might be identical to
+        another node but have a different voxel size (see example).
+
+        Parameters
+        ----------
+        name : str
+            New node name.
+        image : ndarray or str or None, optional
+            - ``ndarray``: 2D or 3D image (2D is interpreted as ``(1, Y, X)``).
+            - ``str``: name of another existing node with an image.
+            - ``None``: no image attached.
+        compression : {'low', 'normal', 'high', 'label'}, optional
+            Compression level for stored ndarray image data.
+        metadata : object, optional
+            Per-node metadata.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        >>> g.add_node("session1", image=session1_vol)
+        >>> g.add_node("session1_1umvoxels", image="session1")
+        >>> g.add_edge("session1", "session1_1umvoxels", Rescale(z=1, x=.3, y=.3))
+
+        """
         # Image can either be a 3-dimensional ndarray or a string of another node
         assert name not in self.nodes, f"Node '{name}' already exists"
         if image is not None:
@@ -258,6 +446,17 @@ class Graph:
         # TODO this doesn't handle the case where other node images refer to the given node
     
     def remove_node(self, name):
+        """Remove a node and all incident edges.
+
+        Parameters
+        ----------
+        name : str
+            Node name to remove.
+
+        Returns
+        -------
+        None
+        """
         if name in self.compressed_node_images:
             del self.compressed_node_images[name]
         if name in self.node_images:
@@ -271,7 +470,22 @@ class Graph:
         self.nodes.remove(name)
 
     def replace_node_image(self, name, image=None, compression="normal"):
-        """Replace or remove a node's image without impacting its other connections"""
+        """Replace or remove a node image without changing graph connections.
+
+        Parameters
+        ----------
+        name : str
+            Node name.
+        image : ndarray or str or None, optional
+            New image volume, reference node name, or ``None`` to remove image.
+            2D input is promoted to ``(1, Y, X)``.
+        compression : {'low', 'normal', 'high', 'label'}, optional
+            Compression level for stored ndarray image data.
+
+        Returns
+        -------
+        None
+        """
         assert name in self.nodes, f"Node '{name}' doesn't exist"
 
         if image is None:
@@ -293,6 +507,24 @@ class Graph:
             self.node_images[name] = image
 
     def add_edge(self, frm, to, transform, update=False):
+        """Add or update a transform edge between two nodes.
+
+        Parameters
+        ----------
+        frm : str
+            Source node.
+        to : str
+            Destination node.
+        transform : transform.Transform
+            Transform from ``frm`` to ``to``.
+        update : bool, optional
+            If ``False``, edge must not exist yet.
+            If ``True``, edge must already exist and is replaced.
+
+        Returns
+        -------
+        None
+        """
         assert frm in self.nodes, f"Node '{frm}' doesn't exist"
         assert to in self.nodes, f"Node '{to}' doesn't exist"
         if update is False:
@@ -306,6 +538,19 @@ class Graph:
         self.edges[to][frm] = inv
 
     def remove_edge(self, frm, to):
+        """Remove an edge and its reverse edge if present.
+
+        Parameters
+        ----------
+        frm : str
+            Source node.
+        to : str
+            Destination node.
+
+        Returns
+        -------
+        None
+        """
         assert frm in self.nodes, f"Node '{frm}' doesn't exist"
         assert to in self.nodes, f"Node '{to}' doesn't exist"
         assert to in self.edges[frm].keys(), "Edge doesn't exist"
@@ -319,6 +564,10 @@ class Graph:
         This does not yet support directed graphs, i.e., graphs which contain
         non-invertable transforms.
 
+        Returns
+        -------
+        list of set[str]
+            One set per connected component.
         """
         components = []
         for n in self.nodes:
@@ -338,7 +587,12 @@ class Graph:
         return components
 
     def unload(self):
-        """Clear memory by unloading the node images, keeping only the compressed forms"""
+        """Clear memory by unloading the node images, keeping only the compressed forms.
+
+        Returns
+        -------
+        None
+        """
         # Before deleting nodes from node_images, make sure that this isn't
         # unsaved.
         nodes_to_unload = [
@@ -362,7 +616,29 @@ class Graph:
             con.close()
 
     def get_chain(self, frm, to):
-        """Return the path in the graph of transforms from `frm` to `to`."""
+        """Return a node path from ``frm`` to ``to``.
+
+        This returns the node chain used to compose transforms between nodes.
+        The returned values are node names (not transforms).
+
+        Parameters
+        ----------
+        frm : str
+            Start node.
+        to : str
+            End node.
+
+        Returns
+        -------
+        list[str]
+            Path nodes excluding ``frm`` and ending at ``to``.
+            Returns ``[]`` when ``frm == to``.
+
+        Raises
+        ------
+        RuntimeError
+            If no path exists between the two nodes.
+        """
         assert frm in self.nodes, f"Node {frm} not found"
         assert to in self.nodes, f"Node {to} not found"
         if frm == to:
@@ -379,6 +655,25 @@ class Graph:
             candidates.extend(to_append)
         raise RuntimeError(f"Path from '{frm}' to '{to}' not found")
     def get_transform(self, frm, to):
+        """Return a transform from ``frm`` to ``to``.
+
+        The transform is composed along the shortest path from ``frm`` to ``to``
+        (returned by :meth:`get_chain`), applying each edge transform in path
+        order.
+
+        Parameters
+        ----------
+        frm : str
+            Source node.
+        to : str
+            Destination node.
+
+        Returns
+        -------
+        transform.Transform
+            Composed transform from ``frm`` to ``to``.
+            Returns ``Identity()`` when ``frm == to``.
+        """
         if frm == to:
             return transform.Identity()
         def _get_transform_from_chain(chain):
@@ -391,12 +686,46 @@ class Graph:
         chain = self.get_chain(frm, to)
         return _get_transform_from_chain(chain)
     def has_transform(self, frm, to):
+        """Check whether a transform path exists between two nodes.
+
+        This is equivalent to determining whether :meth:`get_transform` raises
+        an error.
+
+        Parameters
+        ----------
+        frm : str
+            Source node.
+        to : str
+            Destination node.
+
+        Returns
+        -------
+        bool
+            ``True`` if a transform can be composed.
+        """
         try:
             self.get_transform(frm, to)
         except RuntimeError:
             return False
         return True
     def get_image(self, node):
+        """Get image data for a node.
+
+        Parameters
+        ----------
+        node : str
+            Node name.
+
+        Returns
+        -------
+        ndarray
+            Node image data.
+
+        Notes
+        -----
+        If the node image is a reference (``"ref:other_node"``), the referenced
+        image is transformed into this node's space and returned.
+        """
         if node not in self.nodes:
             raise KeyError(f"Node '{node}' does not exist.")
         if node not in self.node_images:
@@ -439,13 +768,30 @@ class Graph:
         raise RuntimeError(f"Internal error in get_image for node '{node}'. Invalid cache state: {cached_value}")
 
     def visualise(self, filename=None, nearby=None):
-        fn = filename
-        if fn is None:
-            fn = tempfile.mkstemp()[1]
+        """Render a Graphviz visualization of the graph.
+
+        Parameters
+        ----------
+        filename : str or path-like or None, optional
+            Output filename stem. If ``None``, a temporary file is used.
+        nearby : str or None, optional
+            If provided, only draw edges connected to this node.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This requires the "graphviz" package to be installed.
+        """
         try:
             import graphviz
         except ImportError:
             raise ImportError("Please install graphviz package to visualise")
+        fn = filename
+        if fn is None:
+            fn = tempfile.mkstemp()[1]
         g = graphviz.Digraph(self.name, filename=fn)
         # Find all nodes that have an Identity edge and choose one as the 'base" node
         ur_node = {}
@@ -484,7 +830,23 @@ class Graph:
 
 # We put this file here to avoid circular imports
 def load(fn):
-    """Load a Graph or Transform from a file"""
+    """Load a Graph or Transform from file.
+
+    Parameters
+    ----------
+    fn : str or path-like
+        Input file path.
+
+    Returns
+    -------
+    Graph or transform.Transform
+        Loaded object.
+
+    Examples
+    --------
+    >>> g = load("my_graph.db") # Loads a graph
+    >>> t = load("my_transform.txt") # Loads a transform
+    """
     try:
         return Graph.load(fn)
     except sqlite3.DatabaseError:

@@ -9,13 +9,57 @@ from .ndarray_shifted import ndarray_shifted
 
 
 class GraphViewer(napari.Viewer):
+    """Napari viewer with graph-aware image and point loading.
+
+    This viewer can be used just like a normal Napari viewer, except images can
+    be node names in the graph, and images will be automatically transformed to
+    a shared display space using graph transforms.
+
+    Examples
+    --------
+    >>> gv = GraphViewer(graph=g, space="session1")
+    >>> gv.add_image("session1") # Display image for session1 directly
+    >>> gv.add_image("session2") # Transform to session1 space and then display
+    """
+
     def __init__(self, graph, space=None, *args, **kwargs):
+        """Create a graph-aware napari viewer.
+
+        Parameters
+        ----------
+        graph : castalign.graph.Graph
+            Graph used to load node images and transforms.
+        space : str or None, optional
+            Initial display space. If set, incoming data from other spaces is
+            transformed into this space.  Otherwise, the space is set as the
+            first image displayed.
+        *args, **kwargs
+            Forwarded to :class:`napari.Viewer`.
+        """
         super().__init__(*args, **kwargs)
         object.__setattr__(self, "graph", graph)
         object.__setattr__(self, "space", space)
         if isinstance(space, str):
             self.title = f"Alignment in {space} space"
     def _get_data_origin_name(self, data, space, name=None, labels=False):
+        """Normalize image input into viewer space and layer metadata.
+
+        Parameters
+        ----------
+        data : ndarray, ndarray_shifted, or str
+            Image data, or graph node name.
+        space : str or None
+            Space/node for ``data``.
+        name : str or None, optional
+            Layer name override.
+        labels : bool, optional
+            If ``True``, apply label-style interpolation when transforming.
+
+        Returns
+        -------
+        tuple
+            ``(data, origin, name)`` where ``data`` is mapped into viewer space.
+        """
         if isinstance(data, str):
             name = name or data
             space = data if space is None else space
@@ -30,36 +74,148 @@ class GraphViewer(napari.Viewer):
         origin = data.origin if isinstance(data, ndarray_shifted) else np.zeros_like(data.shape)
         return data, origin, name or "data"
     def add_image(self, data, space=None, name=None, **kwargs):
+        """Add image data to the viewer and transform if necessary.
+
+        Parameters
+        ----------
+        data : ndarray, ndarray_shifted, or str
+            Image data or graph node name.
+        space : str or None, optional
+            Space/node for ``data``.
+        name : str or None, optional
+            Layer name.
+        **kwargs
+            Forwarded to ``napari.Viewer.add_image``.
+        """
         data, origin, name = self._get_data_origin_name(data, space, name)
         return super().add_image(data, translate=origin, name=name, **kwargs)
     def add_labels(self, data, space=None, name=None, **kwargs):
+        """Add label data to the viewer and transform if necessary.
+
+        Parameters
+        ----------
+        data : ndarray, ndarray_shifted, or str
+            Label data or graph node name.
+        space : str or None, optional
+            Space/node for ``data``.
+        name : str or None, optional
+            Layer name.
+        **kwargs
+            Forwarded to ``napari.Viewer.add_labels``.
+        """
         data, origin, name = self._get_data_origin_name(data, space, name, labels=True)
         return super().add_labels(data, translate=origin, name=name, **kwargs)
     def add_points(self, data, space=None, **kwargs):
+        """Add points and transform if necessary.
+
+        Parameters
+        ----------
+        data : array-like
+            Point coordinates in ``(z, y, x)`` order.
+        space : str or None, optional
+            Space/node associated with ``data``.
+        **kwargs
+            Forwarded to ``napari.Viewer.add_points``.
+        """
         if space is not None and self.space is not None:
             data = self.graph.get_transform(space, self.space).transform(data)
         return super().add_points(data, **kwargs)
 
 def alignment_gui(movable_image, base_image, transform=None, graph=None, references=[], crop=False, transform_type=None):
-    """Align images
+    """Align images with a specific transform using a GUI.
 
-    `base_image` and `movable_image` should be 2D or 3D numpy ndarrays.
-    Alternatively, if they are tuples, they will be interpreted as
-    multi-channel, with each channel shown as a separate napari layer.
+    This function uses a GUI to specify a given transform.  All parameters can
+    be set using sliders and text boxes on the side of the GUI, and translation
+    parameters can be set by holding Ctrl+Shift to drag and drop the image.  If
+    it is a point-based transform, tools will be shown to select corresponding
+    points in the two images.  The transform can be applied in real-time with
+    each change, or applied by clicking a button.  When the GUI is closed, this
+    function returns the most recent transform to be applied.  (So, if you have
+    selected additional points but not yet visualised them by clicking "Apply
+    transform", the most recently added points will not be included.)
 
-    `transform` is a Transform, either the class itself (an unfitted
-    transform), or one with parameters/data.  If the latter, the existing
-    parameters/data can be modified.  This can also be None, in which case it
-    will be taken from the graph (if it exists) or else set to Identity().
+    The base image(s) and movable image(s( can be any of the following:
 
-    `references` is a list of additional images to show to aid with alingment.
-    This should be a list of tuples, where each tuple is (image, transform)
+    - 2D or 3D arrays (2D arrays will be interpreted as (1, Y, X) 3D arrays)
+    - The name of a node on the graph (given by the ``graph`` argument)
+    - Multichannel images, specified as a tuple, with with each channel as an
+      element of the tuple
+    - Multichannel images from the graph, specified as a tuple of node names.
+      They will all be transformed to the space of the first element of the
+      tuple.
+
+    When there are multiple base or movable images, the coordinate system of the
+    returned transform will always be from the first image in the tuple.
+
+    Additional images can be used as landmarks ("references").  These are
+    transformed to the base image's coordinate system and can be easily toggled
+    on and off.  They can be any of the following:
+
+    - A list of 2D or 3D arrays (2D arrays will be interpreted as (1, Y, X) 3D
+      arrays)
+    - A list of tuples of length 2, where the first element is a 2D or 3D array
+      and the second element is a transform.  The arrays will be transformed
+      according to the transform before being displayed.  (I.e., the transform
+      puts the array into the base coordinate system.)
+    - A list of node names in the graph.
+
+    As some images can be large, the "crop" argument allows displaying a smaller
+    region to increase speed and save memory.  The resulting transform will be
+    applied to the full image, not just the cropped region.
 
     "crop" allows you to reduce the drawn area of the transformed image, making
     transforms faster and use less memory.  If True, it will only show the area
     of the movable image that intersects with the first base image.  If a tuple
     of numbers, it will show the region (zmax,ymax,xmax).  If a tuple of tuples,
     it will show the region ((zmin,zmax),(ymin,ymax),(xmin,xmax)).
+
+    Parameters
+    ----------
+    movable_image : ndarray, str, tuple, or list
+        Movable image input. Accepted forms:
+        - 2D or 3D ndarray (2D is treated as ``(1, Y, X)`` where needed)
+        - tuple/list of ndarrays for multichannel display
+        - node name (str), or tuple/list of node names, when ``graph`` is provided
+    base_image : ndarray, str, tuple, or list
+        Base/fixed image input. Accepted forms are the same as
+        ``movable_image``.
+    transform : Transform subclass, Transform instance, or None, optional
+        Starting transform for alignment:
+        - Transform subclass: start from default parameters for that transform
+        - Transform instance: continue editing an existing transform
+        - ``None``: use graph transform (if available), else ``Identity()``
+    graph : castalign.graph.Graph or None, optional
+        Graph context used for node-name image lookup and transform chaining.
+        Required when passing node names in ``base_image``, ``movable_image``,
+        or ``references``.
+    references : list, optional
+        Additional landmark overlays. Accepted forms:
+        - list of 2D/3D ndarrays (2D treated as ``(1, Y, X)`` where needed)
+        - list of ``(image, transform)`` tuples
+        - list of node names when ``graph`` is provided
+    crop : bool or tuple, optional
+        Display crop for transformed movable image:
+        - ``False``: do not crop
+        - ``True``: crop to the boundaries of the first base image
+        - ``(zmax, ymax, xmax)``: crop from from 0 to these coordinates
+        - ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``: crop to these intervals
+    transform_type : Transform subclass or None, optional
+        Deprecated alias for ``transform``. Used only when ``transform`` is
+        ``None``.
+
+    Returns
+    -------
+    Transform
+        Final transform after interactive editing.
+
+    Notes
+    -----
+    If multiple base/movable images are provided, the returned transform is in
+    the coordinate system of the first image in each list/tuple.
+
+    Crop affects only what is displayed for speed/memory, not the coordinate
+    system of the returned transform.
+
     """
     if transform_type is not None:
         print("The `transform_type` parameter is deprecated, use `transform` instead")
@@ -411,7 +567,37 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
     print(tform)
     return tform
 
-def align_interactive_text(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
+def align_interactive_text(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None, crop=False):
+    """Run command-line interactive alignment.
+
+    Identical to align_interactive(), but using a command-line interface.
+
+    Parameters
+    ----------
+    nodes_movable : ndarray, str, or sequence
+        Movable image(s) or node name(s). Image arrays can be 2D or 3D; 2D
+        arrays are promoted to 3D single-slice volumes where needed.
+    nodes_fixed : ndarray, str, or sequence
+        Fixed image(s) or node name(s). Image arrays can be 2D or 3D; 2D arrays
+        are promoted to 3D single-slice volumes where needed.
+    graph : castalign.graph.Graph or None, optional
+        Graph used for node-name lookup and optional save actions.
+    transform : Transform, str, or None, optional
+        Starting transform, or node name to resolve via graph.
+    references : list, optional
+        Reference overlays as node names or ``(image, transform)`` tuples.
+    start : Transform or None, optional
+        Deprecated alias for ``transform``.
+    crop : bool or tuple, optional
+        Cropping option forwarded to ``alignment_gui`` for preview rendering.
+        Supports the same values as ``alignment_gui`` (``False``, ``True``,
+        ``(zmax, ymax, xmax)``, or full min/max bounds per axis).
+
+    Returns
+    -------
+    Transform
+        Final transform selected in the text workflow.
+    """
     if start is not None:
         print("The `start` parameter is deprecated, use `transform` instead")
     if transform is None:
@@ -522,18 +708,18 @@ q: quit
             continue
         if resp[0] in _TRANSFORMS_FOR_INTERACTIVE.keys():
             ttype = _TRANSFORMS_FOR_INTERACTIVE[resp]
-            t = alignment_gui(nodes_movable, nodes_fixed, transform=t+ttype, references=refs, graph=graph) 
+            t = alignment_gui(nodes_movable, nodes_fixed, transform=t+ttype, references=refs, graph=graph, crop=crop) 
         elif resp[0] == "e":
-            t = alignment_gui(nodes_movable, nodes_fixed, transform=t, references=refs, graph=graph) 
+            t = alignment_gui(nodes_movable, nodes_fixed, transform=t, references=refs, graph=graph, crop=crop) 
         elif resp[0] == "v":
-            alignment_gui(nodes_movable, nodes_fixed, transform=t+Identity, references=refs, graph=graph) 
+            alignment_gui(nodes_movable, nodes_fixed, transform=t+Identity, references=refs, graph=graph, crop=crop) 
         elif resp[0] in "cx" and len(resp) > 1 and resp[1] in _POINT_BASED.keys():
             if isinstance(t, PointTransform):
                 if resp[0] == "x":
                     t = _refine_transform(t, _TRANSFORMS_FOR_INTERACTIVE[resp[1]])
                 elif resp[0] == "c":
                     t = _replace_transform(t, _TRANSFORMS_FOR_INTERACTIVE[resp[1]])
-                t = alignment_gui(nodes_movable, nodes_fixed, transform=t, references=refs, graph=graph) 
+                t = alignment_gui(nodes_movable, nodes_fixed, transform=t, references=refs, graph=graph, crop=crop) 
             else:
                 print("Previous transform must be a point-based transform")
                 t = t_hist.pop()
@@ -580,7 +766,60 @@ q: quit
     print("Transform is:", t)
     return t
 
-def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None):
+def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, references=[], start=None, crop=False):
+    """Align images with a GUI using chains of transforms
+
+    This is the primary tool used to align images in CASTalign.  It can be used
+    to visually create or edit chains of transforms from a buffet of options,
+    either by setting points, dragging and dropping images, or chosing
+    parameters.  Transforms are updated in real time during editing.
+
+    On a practical level, the workflow is:
+
+    1. Start with an initial transform (from ``transform``, from the graph, or
+       Identity by default).
+    2. In the main dialog, choose a transform type (button or keyboard
+       shortcut).  This opens the lower-level ``alignment_gui`` editor for that
+       stage.
+    3. In the editor, adjust parameters and/or corresponding points, then close
+       the editor to return to this dialog with the updated transform chain.
+    4. Use "Modify / other actions" to edit/view/remove/undo/flip/toggle
+       references or save.
+    5. For point-based transforms, use extend (``x`` prefix) or convert
+       (``c`` prefix) actions to refine/replace the current point-based stage.
+    6. Quit to return the current transform.
+
+    The main dialog keeps an undo history and supports keyboard shortcuts for
+    all major actions.  If a graph is provided, transforms can be written back
+    to the graph and optionally saved to disk.
+
+    Parameters
+    ----------
+    nodes_movable : ndarray, str, or sequence
+        Movable image(s) or node name(s). Image arrays can be 2D or 3D; 2D
+        arrays are promoted to 3D single-slice volumes where needed.
+    nodes_fixed : ndarray, str, or sequence
+        Fixed image(s) or node name(s). Image arrays can be 2D or 3D; 2D arrays
+        are promoted to 3D single-slice volumes where needed.
+    graph : castalign.graph.Graph or None, optional
+        Graph used for node-name lookup and save actions.
+    transform : Transform, str, or None, optional
+        Starting transform, or node name to resolve via graph.
+    references : list, optional
+        Reference overlays as node names or ``(image, transform)`` tuples.
+    start : Transform or None, optional
+        Deprecated alias for ``transform``.
+    crop : bool or tuple, optional
+        Cropping option forwarded to ``alignment_gui`` for preview rendering.
+        Supports the same values as ``alignment_gui`` (``False``, ``True``,
+        ``(zmax, ymax, xmax)``, or full min/max bounds per axis).
+
+    Returns
+    -------
+    Transform
+        Final transform selected in the GUI workflow.
+
+    """
     from qtpy import QtWidgets, QtCore
 
     if start is not None:
@@ -749,7 +988,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
         dlg.setEnabled(False)
         QtWidgets.QApplication.processEvents()
         try:
-            result = alignment_gui(nodes_movable, nodes_fixed, transform=align_transform, references=refs_current, graph=graph)
+            result = alignment_gui(nodes_movable, nodes_fixed, transform=align_transform, references=refs_current, graph=graph, crop=crop)
             if assign_result:
                 t = result
         finally:
@@ -1049,9 +1288,41 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     return t
 
 def _refine_transform(transform, transformtype, **kwargs):
+    """Create a new point-transform using the residuals of the previous point-based transform.
+
+    Parameters
+    ----------
+    transform : PointTransform
+        Existing point-based transform (or chain ending in one).
+    transformtype : type
+        Point-transform class to append.
+    **kwargs
+        Forwarded to ``transformtype`` constructor.
+
+    Returns
+    -------
+    Transform
+        Composed transform with an appended refinement stage.
+    """
     start = transform.transform(transform.pretransform().invert().transform(transform.points_start))
     end = transform.points_end
     return transform + transformtype(points_start=start, points_end=end, **kwargs)
 
 def _replace_transform(transform, transformtype, **kwargs):
+    """Replace a point-transform while preserving the selected points
+
+    Parameters
+    ----------
+    transform : PointTransform
+        Existing point-based transform (or chain ending in one).
+    transformtype : type
+        Replacement point-transform class.
+    **kwargs
+        Forwarded to ``transformtype`` constructor.
+
+    Returns
+    -------
+    Transform
+        Transform with terminal point-transform replaced.
+    """
     return transform.pretransform() + transformtype(points_start=transform.points_start, points_end=transform.points_end, **kwargs)

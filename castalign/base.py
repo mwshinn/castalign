@@ -10,7 +10,22 @@ import threadpoolctl
 # - implement posttransforms, allowing the unfitted transform to be on the left hand side
 
 def rotation_matrix(z, y, x):
-    """Perform *clockwise* rotation in degrees along the three axes"""
+    """Build a clockwise 3D rotation matrix from Euler angles.
+
+    Parameters
+    ----------
+    z : float
+        Clockwise rotation angle (degrees) around the z axis.
+    y : float
+        Clockwise rotation angle (degrees) around the y axis.
+    x : float
+        Clockwise rotation angle (degrees) around the x axis.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotation matrix with shape ``(3, 3)``.
+    """
     sin = lambda x : np.sin(np.deg2rad(x))
     cos = lambda x : np.cos(np.deg2rad(x))
     zy_rotation = lambda theta : \
@@ -25,30 +40,35 @@ def rotation_matrix(z, y, x):
 class Transform:
     """Base class for all transforms.
 
-    To use, instantiate and then call fit().
+    This is the core transform interface used across CASTalign. A transform maps
+    3D volume coordinates from one space to another, and can also be applied to
+    full volumetric images through resampling.
 
-    Conceptually, there are two types of transforms: those that use points (see
-    PointTransform) and those that don't.  Parameters can either be definitions
-    of the transform (e.g., z-shift) or they can be hyperparameters (e.g., a
-    smoothness regularizser).  They should be floats or booleans, and can be set
-    through the GUI.
+    Conceptually, transforms in CASTalign are usually either:
+    - point-based (see ``PointTransform``), or
+    - parameterized transforms that do not use correspondence points.
 
-    Required method to subclass is : "_transform" (map points from base space to
-    the new space), and "invert" (the opposite).  If parameters need to be
-    calculated from the points, also define _fit (takes points_start and
-    points_end and modifies the current object).  If you can't define "invert",
-    then subclass TransformPointsNoInverse instead, which will create one for
-    you numerically.
+    ``DEFAULT_PARAMETERS`` serves two purposes:
+    - it provides default values, and
+    - it defines the complete set of constructor keyword parameters accepted by
+      that transform class.
 
-    If you want parameters to be accepted by the constructor, use the
-    "DEFAULT_PARAMETERS" dict, where the key is the name and the value is the default.
-    They will be saved in self.params.  This is NOT for parameters which need to
-    be fit or can be reconstructed perfectly from points_start and points_end.
+    Parameter values are stored in ``self.params`` and can be edited in the
+    GUI. These are for user-settable controls (for example shifts, scales,
+    toggles), not values that are fit from selected points.
 
-    There are a few final rules that must be followed when implementing new
-    Transforms:
+    Notes
+    -----
+    To implement a new subclass:
 
-    1. The transform MUST be able to be reconstructed perfectly from the output of the __repr__ function.
+    - Implement ``_transform(points)`` for forward mapping.
+    - Implement ``invert()`` for reverse mapping.
+    - Implement ``_fit()`` if parameters must be derived from point data.
+      ``_fit()`` is called during initialization when present.
+    - If there is no analytic inverse, subclass
+      ``PointTransformNoAnalyticInverse``.
+
+    Any transform must be exactly reconstructible from ``__repr__`` output.
 
     """
     NAME = ""
@@ -81,19 +101,82 @@ class Transform:
     def __add__(self, other):
         return compose_transforms(self, other)
     def __call__(self, data, *args, **kwargs):
+        """Apply this transform to points or an image.
+
+        This convenience method lets you use a transform like a function. If
+        ``data`` looks like point coordinates, it routes to ``transform``;
+        otherwise it treats ``data`` as image data and routes to
+        ``transform_image``.
+
+        Parameters
+        ----------
+        data : array-like
+            Either:
+            - 3D point coordinates in ``(z, y, x)`` form (``(3,)`` or ``(N, 3)``), or
+            - image-like array data.
+        *args, **kwargs
+            Forwarded to ``transform`` or ``transform_image`` depending on
+            input type.
+
+        Returns
+        -------
+        numpy.ndarray or ndarray_shifted
+            Transformed points or transformed image data.
+        """
         adata = np.asarray(data)
         if (adata.ndim == 2 and adata.shape[1] == 3) or (adata.ndim == 1 and adata.shape[0] == 3):
             return self.transform(adata, *args, **kwargs)
         return self.transform_image(adata, *args, **kwargs)
     def save(self, filename):
+        """Save this transform to disk as a reconstructible text string.
+
+        Parameters
+        ----------
+        filename : str or path-like
+            Output file path.
+
+        Notes
+        -----
+        The saved content is ``repr(self)`` and is intended to be read back with
+        :meth:`load`.
+        """
         with open(filename, "w") as f:
             f.write(repr(self))
     @staticmethod
     def load(filename):
+        """Load a transform from a file written by :meth:`save`.
+
+        Parameters
+        ----------
+        filename : str or path-like
+            Input file path containing a transform repr string.
+
+        Returns
+        -------
+        Transform
+            Reconstructed transform object.
+        """
         with open(filename, "r") as f:
             text = f.read()
         return eval(text, globals(), None)
     def transform(self, points):
+        """Transform 3D point coordinates from source space to target space.
+
+        Use this when you want to move landmarks, annotations, or other
+        coordinate sets into the transformed image space.
+
+        Parameters
+        ----------
+        points : array-like
+            Point coordinates in ``(z, y, x)`` order. Accepts either a single
+            point ``(3,)`` or many points ``(N, 3)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Transformed coordinates, with the same single-point vs multi-point
+            structure as the input.
+        """
         points = np.asarray(points)
         is_1d = False
         if points.ndim == 1:
@@ -107,30 +190,94 @@ class Transform:
         else:
             return self._transform(points)
     def _transform(self, points):
-        """Forward mapping function for the transformation"""
+        """Map points from source space to target space.
+
+        Parameters
+        ----------
+        points : numpy.ndarray
+            Array with shape ``(N, 3)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Transformed points with shape ``(N, 3)``.
+        """
         raise NotImplementedError("Please subclass and replace")
     def inverse_transform(self, points):
-        """Inverse mapping function for the transformation.
+        """Map points from target space back to source space.
 
-        Override this function to provide a more efficient implementation.
+        Parameters
+        ----------
+        points : numpy.ndarray
+            Array with shape ``(N, 3)`` or a single point ``(3,)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            Inverse-transformed points with the same leading shape as input.
+
+        Notes
+        -----
+        Override this for a faster implementation; default is
+        ``self.invert().transform(points)``.
         """
         return self.invert().transform(points)
     def invert(self):
+        """Return the inverse transform.
+
+        Use this when you need to map coordinates or images in the opposite
+        direction (target space back to source space).
+
+        Returns
+        -------
+        Transform
+            A transform representing the inverse mapping.
+
+        Notes
+        -----
+        Subclasses must implement this.
+        """
         raise NotImplementedError("Please subclass and replace")
     def origin_and_maxpos(self, img, output_size=None, force_size=True):
-        """Find an output (transformed) image bounding box.
+        """Compute output-space bounds for a transformed image.
 
-        `img` is the input image.
+        This is used internally to inspect or control the output coordinate box
+        before calling ``transform_image``. This is especially useful when you
+        need consistent output extents across multiple transformed volumes.
 
-        If `output_size` is None, this will generate the smallest possible
-        bounding box  If it is a list or tuple of integers with length 3,
-        it will generate an image of the given size.  If it is a list of tuple
-        of 3 lists or tuples of length 2, it will interpret each as a minimum
-        and maximum coordinate in the output space.
+        Parameters
+        ----------
+        img : numpy.ndarray or ndarray_shifted
+            Input 3D image.
+        output_size : None, sequence, or sequence of 2-tuples, optional
+            Output bounds:
+            - ``None``: tight bounds from transformed corners.
+            - ``(z, y, x)``: explicit upper bounds from origin 0.
+            - ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``: explicit bounds.
+            ``None`` values inside explicit bounds are treated as open bounds.
+        force_size : bool, optional
+            If ``True``, use explicit bounds exactly. If ``False``, treat them
+            as limits and allow smaller computed bounds.
 
-        If `force_size` is False, it will interpret `output_size` as a maximum
-        bounding box, but it may generate a smaller image if it is more
-        computationally efficient.
+        Returns
+        -------
+        tuple of numpy.ndarray
+            ``(origin, maxpos)`` each with shape ``(3,)``.
+
+        Examples
+        --------
+        Use automatic tight bounds:
+        >>> origin, maxpos = t.origin_and_maxpos(img)
+
+        Force a specific output size from origin 0:
+        >>> origin, maxpos = t.origin_and_maxpos(img, output_size=(80, 256, 256))
+
+        Force explicit coordinate bounds:
+        >>> origin, maxpos = t.origin_and_maxpos(
+        ...     img,
+        ...     output_size=((10, 90), (20, 220), (30, 230)),
+        ...     force_size=True,
+        ... )
         """
         input_bounds = img.shape
         origin_offset = img.origin if isinstance(img, ndarray_shifted) else [0,0,0]
@@ -157,26 +304,55 @@ class Transform:
             raise ValueError(f"Invalid value of `output_size` passed: {output_size}")
         return origin,maxpos
     def transform_image(self, img, output_size=None, labels=None, force_size=True):
-        """Generic non-rigid transformation for images.
+        """Transform an image
 
-        Apply the transformation to image `img`.
+        ``output_size`` controls the output coordinate box. If it is ``None``,
+        the transformed image uses a tight bounding box based on transformed
+        corners (and point targets for point-based transforms). If it is
+        explicit, it can be either ``(z, y, x)`` max bounds from origin 0, or
+        full per-axis bounds ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``.
+        With ``force_size=True`` these bounds are used exactly; with
+        ``force_size=False`` they are treated as limits and the method may return
+        a smaller box when possible.
 
-        If `output_size` is None, this will generate the smallest possible
-        output image size.  If it is a list or tuple of integers with length 3,
-        it will generate an image of the given size.  If it is a list of tuple
-        of 3 lists or tuples of length 2, it will interpret each as a minimum
-        and maximum coordinate in the output space.
+        Parameters
+        ----------
+        img : numpy.ndarray or ndarray_shifted
+            Input image. 2D images are promoted to 3D single-slice volumes.
+        output_size : None, sequence, or sequence of 2-tuples, optional
+            Output bounds, same formats as ``origin_and_maxpos``.
+        labels : bool or None, optional
+            Label mode:
+            - ``True``: nearest-neighbor interpolation.
+            - ``False``: linear interpolation.
+            - ``None``: auto-detect with ``image_is_label``.
+        force_size : bool, optional
+            If ``False``, output size may be smaller than ``output_size``
+            if the output would include empty space
 
-        If `labels` is True, no interpolation is performed.  This is for images
-        of labels, e.g., segmentations.  If None, it will guess whether the
-        image is labels or not.
+        Returns
+        -------
+        ndarray_shifted or numpy.ndarray
+            Transformed image in output coordinates.
 
-        If `force_size` is False, it will interpret `output_size` as a maximum
-        bounding box, but it may generate a smaller image if it is more
-        computationally efficient.
+        Notes
+        -----
+        Generic implementation for non-rigid transforms. Subclasses can override
+        with faster special cases.
 
-        This can be overridden by more efficient implementations in subclasses.
+        Examples
+        --------
+        Transform with automatic tight output bounds:
+        >>> out = t.transform_image(img)
 
+        Transform a label volume with nearest-neighbor interpolation:
+        >>> out = t.transform_image(labels_img, labels=True)
+
+        Transform with explicit output bounds:
+        >>> out = t.transform_image(
+        ...     img,
+        ...     output_size=((10, 90), (20, 220), (30, 230)),
+        ... )
         """
         # First, if we have an ndarray_shifted object, shift it first with another transform.
         if isinstance(img, ndarray_shifted) and np.any(img.origin != np.asarray([0,0,0])):
@@ -206,7 +382,20 @@ class Transform:
         ycoords = np.arange(0,shape[1], dtype="float32")
         xcoords = np.arange(0,shape[2], dtype="float32")
         def chunker(zcoords, ycoords, xcoords, chunksize=10_000_000):
-            """It takes lots of memory to do this all at once so we create chunks based on z planes"""
+            """Yield z-plane chunks to limit peak memory usage.
+
+            Parameters
+            ----------
+            zcoords, ycoords, xcoords : numpy.ndarray
+                Output coordinate vectors.
+            chunksize : int, optional
+                Approximate voxel budget per chunk.
+
+            Yields
+            ------
+            tuple
+                ``(coords, chunk_shape, inds)`` for one chunk.
+            """
             zsize = len(ycoords)*len(xcoords)
             n_z_per_chunk = np.maximum(chunksize // zsize, 1)
             single_plane = np.asarray([np.repeat(ycoords, len(xcoords)), np.tile(xcoords, len(ycoords))], dtype="float32")
@@ -245,29 +434,59 @@ class Transform:
         return ndarray_shifted(output, origin=origin, only_if_necessary=True) # Added -origin from origin due to TranslateParametric + Rescale on a ndarray_shifted but not sure if this is the right spot
     @staticmethod
     def pretransform(*args, **kwargs):
-        """Default fixed transform, applied before this transform is applied.
+        """Return the fixed pre-transform applied before this transform.
 
-        This can usually be set to the Identity transformation, except when only
-        part of the transform should be fit with data, for instance, composed
-        transforms where only the last element is set to be fit.  This is also
-        the default when the parameters for the transform have not yet been set.
+        Returns
+        -------
+        Transform
+            Pre-transform to apply first. The default is ``Identity()``.
 
+        Notes
+        -----
+        Most transform classes should keep this default. Override it when a
+        class represents a composed transform where only part of the chain is
+        meant to be fit from data (for example, when an earlier component is
+        fixed and only the final component is fit).
         """
         return Identity()
 
 class PointTransform(Transform):
-    """Transformation based on starting and ending points
+    """Base class for transforms fit from point correspondences.
 
-    Please define:
-    - self.transform
-    - self.inverse_transform
-    - (Optionally) self.invert
+    This class stores matched 3D points and is the base for transforms that are
+    learned from those matches.
 
-    Guarantees access to:
-    - self.points_start
-    - self.points_end
+    Notes
+    -----
+    Subclasses can rely on:
+    - ``self.points_start``: source coordinates.
+    - ``self.points_end``: target coordinates.
+
+    Subclasses are expected to implement the standard transform behavior:
+    - forward mapping through ``_transform``,
+    - inverse mapping through ``invert``,
+    - and optional fitting logic in ``_fit``.
     """
     def __init__(self, points_start=None, points_end=None, **kwargs):
+        """Initialize a point-based transform from matched coordinates.
+
+        Parameters
+        ----------
+        points_start : array-like, optional
+            Source-space points, shaped ``(N, 3)`` in ``(z, y, x)``
+            order.
+        points_end : array-like, optional
+            Target-space points matched one-to-one with ``points_start``,
+            shaped ``(N, 3)``.
+        **kwargs
+            Additional transform parameters accepted by this class (defined by
+            ``DEFAULT_PARAMETERS`` on the subclass).
+
+        Raises
+        ------
+        AssertionError
+            If ``points_start`` and ``points_end`` do not have the same shape.
+        """
         # Save and process the points for the transform
         points_start = np.asarray(points_start)
         points_end = np.asarray(points_end)
@@ -277,7 +496,20 @@ class PointTransform(Transform):
         super().__init__(**kwargs)
     @classmethod
     def from_transform(cls, transform, *args, **kwargs):
-        """Alternative constructor which steals the points from an existing Transform object"""
+        """Construct a point transform from another transform's points.
+
+        Parameters
+        ----------
+        transform : Transform
+            Existing transform providing ``points_start`` and ``points_end``.
+        *args, **kwargs
+            Additional constructor args for ``cls``.
+
+        Returns
+        -------
+        PointTransform
+            New instance initialized with copied correspondences.
+        """
         return cls(points_start=transform.points_start, points_end=transform.points_end, *args, **kwargs)
     def __repr__(self):
         ret = self.__class__.__name__
@@ -289,14 +521,20 @@ class PointTransform(Transform):
         return ret
 
 class AffineTransform:
-    """AffineTransform should always be inherited with PointTransform
+    """Mixin implementing affine transform behavior.
 
-    To subclass, use the _fit function to define the parameters self.shift and
-    self.matrix for the two components of the affine transform.  This defines
-    all other necessary functions for a transform.  If you have multiple
-    inheritance from PointTransform, you can use self.points_start and
-    self.points_end.
+    This class provides shared affine logic for transform classes that represent
+    mappings of the form:
+    ``output = input @ matrix - shift``.
 
+    Notes
+    -----
+    Subclasses should use ``_fit`` to set:
+    - ``self.matrix`` with shape ``(3, 3)``
+    - ``self.shift`` with shape ``(3,)``
+
+    This mixin is designed for multiple inheritance with ``Transform`` or
+    ``PointTransform``-derived classes.
     """
     def _transform(self, points):
         return points @ self.matrix - self.shift
@@ -322,21 +560,20 @@ class AffineTransform:
 
 # TODO improve optimisation with the jacobian
 class PointTransformNoAnalyticInverse(PointTransform):
-    """For transforms which do not have an analytic inverse.
+    """Base class for point transforms without an analytic inverse.
 
-    Requires subclass to have {"invert": False} as a parameter.
+    This class uses numerical inversion when needed, for transforms that are
+    still bijective but do not have a closed-form inverse.
 
-    Automatically uses numerical routines to define the inverse.  To subclass,
-    define the "_transform" function.  The function still needs to be
-    invertable, i.e., it still needs to be a bijection.  For these, unlike
-    normal, the _transform function must take three arguments: the points to
-    transform, the starting points, and the ending points.
+    Notes
+    -----
+    Subclasses should:
+    - include ``{"invert": False}`` in ``DEFAULT_PARAMETERS``
+    - implement ``_transform(points, points_start, points_end)``
 
-    We assume that the non-invertable transform is actually the inverse
-    transform, since image transforms usually operate this way and they are more
-    computationally expensive.  Passing the "invert=False" argument to the
-    constructor will change this.
-
+    By default, this class treats ``_transform`` as the inverse-direction map,
+    which is typically the faster direction for image resampling workflows.
+    Passing ``invert=False`` flips that behavior.
     """
     def __init__(self, *args, **kwargs):
         self._inv_transform_cache = {}
@@ -373,7 +610,26 @@ class Identity(AffineTransform,Transform):
     def invert(self):
         return self.__class__()
     def transform_image(self, image, output_size=None, labels=None, force_size=True):
-        """More efficient implementation of image transformation"""
+        """Apply the identity transform
+
+        This can obviously be a faster implementation than the default.
+
+        Parameters
+        ----------
+        image : numpy.ndarray or ndarray_shifted
+            Input image data.
+        output_size : optional
+            Forwarded when generic path is required.
+        labels : bool or None, optional
+            Forwarded when generic path is required.
+        force_size : bool, optional
+            Forwarded when generic path is required.
+
+        Returns
+        -------
+        numpy.ndarray or ndarray_shifted
+            Original image when possible, otherwise generic resampled output.
+        """
         # TODO This doesn't work for different output_size values
         if output_size is not None:
             return super().transform_image(image, output_size=output_size, labels=labels, force_size=force_size)
@@ -442,7 +698,15 @@ class AffineParametric(AffineTransform,Transform):
         return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], yzshear=self.params["yzshear"], xzshear=self.params["xzshear"], xyshear=self.params["xyshear"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], invert=(not self.params["invert"]))
 
 class MatrixParametric(AffineTransform,Transform):
-    """Directly use a transformation matrix.  Does not check to make sure the matrix is valid, use at your own risk!"""
+    """Affine transform defined directly by matrix coefficients.
+
+    Exposes all 3x3 matrix entries and translation terms as parameters.
+
+    Notes
+    -----
+    Matrix validity is not checked. Invalid/singular matrices may give unstable
+    or undefined results.
+    """
     NAME = "Transformation matrix"
     DEFAULT_PARAMETERS = {"a11": 1, "a12": 0, "a13": 0, "a21": 0, "a22": 1, "a23": 0, "a31": 0, "a32": 0, "a33": 1, "x": 0, "y": 0, "z": 0}
     GUI_DRAG_PARAMETERS = ["z", "y", "x"]
@@ -458,16 +722,10 @@ class MatrixParametric(AffineTransform,Transform):
         return self.__class__(a11=p(11), a12=p(21), a13=p(31), a21=p(12), a22=p(22), a23=p(32), a31=p(13), a32=p(23), a33=p(33), z=-newzyx[0], y=-newzyx[1], x=-newzyx[2])
 
 class PlaneConstrainedAffine(AffineTransform,PointTransform):
-    """Translate, Rotate, and Rescale for planes (e.g., sections)
+    """Affine fit constrained to a dominant plane (e.g., section-like data).
 
-    We do not want to perform a linear regression from starting points to ending
-    points as in TranslateRotateRescale, because this can cause some gnarly skew
-    due to the difference in point spacing in the thin dimension compared to the
-    thicker dimensions.  So, this finds a 2D plane (two high-variance
-    dimensions) that maximises shared variance between the point clouds, and
-    then performs two regressions: one for the two high variance dimensions, and
-    another separately for the lowest-variance dimension.
-
+    Splits fitting into high-variance in-plane components plus low-variance
+    normal-depth component to reduce skew in thin volumes.
     """
     NAME = "Plane-constrained affine"
     SHORTCUT_KEY = "P"
@@ -524,13 +782,17 @@ class RescaleParametric(AffineTransform,Transform):
         return self.__class__(z=1/self.params["z"], y=1/self.params["y"], x=1/self.params["x"])
 
 class Triangulation(PointTransform):
-    """Using a mesh/triangulation to deform the volume.
+    """Nonlinear 3D deformation using piecewise-affine triangulation.
 
-    This uses a Delaunay triangulation for the inverse transform.  Because scipy
-    does not support using an arbitrary triangulation here, we manually iterate
-    through to determine containment of a point in each simplex instead of using
-    the built-in scipy function.  Then, we apply the relevant linear transform
-    to each.
+    This transform warps a 3D volume by building a Delaunay triangulation over
+    control points, then applying a local affine map per tetrahedron.
+
+    Notes
+    -----
+    The implementation supports both directions of mapping. For one direction it
+    can use ``find_simplex`` directly; for the other it manually checks
+    tetrahedron containment, because SciPy does not provide the exact
+    arbitrary-triangulation path needed for this workflow.
     """
     NAME = "Nonlinear 3D triangulation"
     SHORTCUT_KEY = "V"
@@ -602,20 +864,23 @@ class Triangulation(PointTransform):
         return self.__class__(invert=(not self.params["invert"]), points_start=self.points_end, points_end=self.points_start)
 
 class PlaneConstrainedTriangulation(PointTransform):
-    """Using a mesh/triangulation to deform the volume in two dimensions.
+    """Nonlinear triangulation constrained to a fitted 2D plane in 3D.
 
-    This is the recommended nonlinear transform for any image that looks like a
-    pancake (flat but not extremely thin).
+    This is generally the recommended nonlinear transform for mostly flat
+    section-like 3D data (broad in two dimensions, thinner in the third).
 
-    If the components of the normal vector are all zero, the normal vector will
-    be detected automatically.  
+    If ``normal_z``, ``normal_y``, and ``normal_x`` are all zero, the normal is
+    estimated automatically from the input points.
 
-    This uses a Delaunay triangulation for the inverse transform.  Because scipy
-    does not support using an arbitrary triangulation here, we manually iterate
-    through to determine containment of a point in each simplex instead of using
-    the built-in scipy function.  Then, we apply the relevant linear transform
-    to each.
+    Notes
+    -----
+    The transform triangulates points after projection into the fitted plane,
+    then computes local 3D affine maps using those projected triangles plus a
+    normal-direction anchor so depth is handled consistently.
 
+    As with ``Triangulation``, one mapping direction can use
+    ``find_simplex`` directly, while the other uses manual triangle containment
+    checks due to SciPy API limitations for this specific inverse workflow.
     """
     NAME = "Plane-constrained triangulation"
     SHORTCUT_KEY = "N"
@@ -716,6 +981,33 @@ class PlaneConstrainedTriangulation(PointTransform):
 ########## Composing transforms ##########
 
 def compose_transforms(a, b):
+    """Compose two transforms into one transform chain.
+
+    This is the implementation behind ``a + b``. It handles composing transform
+    instances, and also the mixed case where ``a`` is an already-fit transform
+    instance and ``b`` is a transform class.
+
+    Parameters
+    ----------
+    a : Transform
+        Left-hand transform. Must be an instantiated transform.
+    b : Transform or type
+        Right-hand transform, either as an instance or as a transform class.
+
+    Returns
+    -------
+    Transform or type
+        Depending on inputs:
+        - If both are instances, returns an instantiated composed transform.
+        - If ``b`` is a class, returns a composed transform class.
+        - Identity components are simplified away when possible.
+
+    Notes
+    -----
+    For affine + affine composition, the returned composed class uses affine
+    shortcuts (combined matrix/shift). For non-affine composition, point mapping
+    is composed directly.
+    """
     # Skip for the identity transform
     if isinstance(a, Identity):
         return b

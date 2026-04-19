@@ -14,26 +14,28 @@ try: # Work around skimage bug in some versions
 except TypeError:
     phase_correlation = lambda x,y : skimage.registration.phase_cross_correlation(x, y)
 
-def apply_transform_to_2D_colour_image(image_filename, transform, flip=False):
-    im = imageio.imread(image_filename).transpose(2,0,1)
-    newim = np.zeros(im.shape)
-    if flip:
-        im = im[:,::-1]
-    for i in range(0, im.shape[0]):
-        newim[i] = transform.transform_image(im[i][None])
-    filename_parts = image_filename.split(".")
-    filename_parts.insert(-1, "transform")
-    try:
-        imageio.imsave(".".join(filename_parts), newim.transpose(1,2,0))
-    except TypeError:
-        newim = newim.transpose(1,2,0)
-        newim -= np.min(newim)
-        newim /= np.max(newim)
-        newim = (255*newim).astype("uint8")
-        imageio.imsave(".".join(filename_parts), newim)
-        
-
 def blit(source, target, loc):
+    """Paste one 3D block into another, clipping to valid bounds.
+
+    This is an internal helper for building composite volumes (for example in
+    :func:`bake_images`). It exists so higher-level code can place data by
+    absolute location without manual slicing logic.
+
+    Parameters
+    ----------
+    source : ndarray
+        Source volume of shape ``(Z, Y, X)``
+    target : ndarray
+        Destination volume of shape ``(Z, Y, X)``. Modified in place.
+    loc : array-like of int, shape (3,)
+        Voxel coordinate in ``target`` where ``source[0, 0, 0]`` should be
+        placed. Can be negative or out of bounds.
+
+    Returns
+    -------
+    None
+        ``target`` is modified in place.
+    """
     source_size = np.asarray(source.shape)
     target_size = np.asarray(target.shape)
     # If we had infinite boundaries, where would we put it?
@@ -52,6 +54,27 @@ def blit(source, target, loc):
     target[tuple(target_slices)] = source[tuple(source_slices)]
 
 def bake_images(im_fixed, im_movable, transform):
+    """Build one combined 3D volume from fixed and movable volumes.
+
+    The function applies ``transform`` to the movable volume, finds a canvas
+    large enough to hold both volumes in absolute space, and returns the merged
+    result.
+
+    Parameters
+    ----------
+    im_fixed : ndarray or ndarray_shifted
+        Fixed/reference 3D volume in shape ``(Z, Y, X)``.
+    im_movable : ndarray or ndarray_shifted
+        Movable 3D volume in ``(Z, Y, X)`` order.
+    transform : object
+        Transform that maps movable-space coordinates into fixed-space
+        coordinates
+
+    Returns
+    -------
+    ndarray_shifted
+        Combined 3D volume in absolute coordinates.
+    """
     origin = transform.origin_and_maxpos(im_movable)[0]
     ti = transform.transform_image(im_movable)
     fixed_origin = im_fixed.origin if isinstance(im_fixed, ndarray_shifted) else np.asarray([0,0,0])
@@ -64,17 +87,69 @@ def bake_images(im_fixed, im_movable, transform):
     return ndarray_shifted(im, origin=new_dims_min)
 
 def absolute_coords_to_voxel_coords(img, coords):
+    """Convert absolute coordinates to voxel indices for a 3D volume.
+
+    For ndarrays, in index i refers to the i'th voxel, or equivalently, the
+    voxel located at position i in the image's coordinate system.  However, in
+    ndarray_shifted, these two do not necessarily coincide.  This converts
+    position i in the ndarray_shifted's coordinate system into the voxel located
+    at that position.
+
+    Parameters
+    ----------
+    img : ndarray or ndarray_shifted
+        3D volume. If plain ndarray, origin is assumed to be ``(0, 0, 0)``.
+    coords : array-like
+        Absolute coordinate(s), shape ``(3,)`` or ``(N, 3)``.
+
+    Returns
+    -------
+    ndarray of int
+        Rounded voxel indices: ``round(coords - img.origin)``.
+    """
     if not isinstance(img, ndarray_shifted):
         img = ndarray_shifted(img)
     return np.round(coords - img.origin).astype(int)
 
 def voxel_coords_to_absolute_coords(img, coords):
+    """Convert voxel indices to absolute coordinates for a 3D volume.
+
+    This is the inverse of :func:`absolute_coords_to_voxel_coords`.
+
+    Parameters
+    ----------
+    img : ndarray or ndarray_shifted
+        3D volume. If plain ndarray, origin is assumed to be ``(0, 0, 0)``.
+    coords : array-like
+        Voxel coordinate(s), shape ``(3,)`` or ``(N, 3)``.
+
+    Returns
+    -------
+    ndarray
+        Absolute coordinates: ``coords + img.origin``.
+    """
     if not isinstance(img, ndarray_shifted):
         img = ndarray_shifted(img)
     return coords + img.origin
 
 def crop_to_intersection(img1, img2):
-    # TODO DOes not yet work with downsampling
+    """Crop two 3D volumes to the same overlapping region in absolute space.
+
+    This is useful when two volumes are in the same coordinate frame and you
+    need matching fields of view for comparison or visualization.
+
+    Parameters
+    ----------
+    img1 : ndarray or ndarray_shifted
+        First 3D volume.
+    img2 : ndarray or ndarray_shifted
+        Second 3D volume.
+
+    Returns
+    -------
+    tuple of ndarray_shifted
+        ``(img1_crop, img2_crop)`` with the same origin and shape.
+    """
     if not isinstance(img1, ndarray_shifted):
         img1 = ndarray_shifted(img1)
     if not isinstance(img2, ndarray_shifted):
@@ -95,6 +170,24 @@ def crop_to_intersection(img1, img2):
     
 
 def load_image(fn, channel=None):
+    """Load a 2D image file and convert it to a single-slice 3D volume.
+
+    CASTalign is built for 3D volumes. This helper exists mostly for convenience
+    of converting a 2D channel-last image into ``(1, Y, X)`` 3D image
+
+    Parameters
+    ----------
+    fn : str or path-like
+        Path to an image readable by ``imageio.imread``.
+    channel : int or None, optional
+        Channel index to extract from a ``(Y, X, C)`` image. If ``None``,
+        non-blank channels are averaged.
+
+    Returns
+    -------
+    ndarray
+        Single-slice volume with shape ``(1, Y, X)``.
+    """
     img = imageio.imread(fn)
     if channel is None:
         axes = list(np.any((img!=0) & (img!=255), axis=(0,1)))
@@ -103,7 +196,21 @@ def load_image(fn, channel=None):
         return img[:,:,channel][None]
 
 def image_is_label(img):
-    """Quick, non-robust way to guess whether an image is a label image"""
+    """Guess whether a 3D volume is a label volume.
+
+    Internally used as a heuristic to pick things like compression behavior for
+    label-like vs intensity-like data.
+
+    Parameters
+    ----------
+    img : ndarray
+        3D volume of shape ``(Z, Y, X)``.
+
+    Returns
+    -------
+    bool
+        ``True`` if sampled stats look label-like, else ``False``.
+    """
     plane = img[img.shape[0]//2] # Pick a plane in the middle
     # First a quick test to eliminate most cases quickly
     pmini = plane[0:100,0:100]
@@ -124,24 +231,108 @@ def image_is_label(img):
     return True
 
 def _image_compression_transform(img, transform_id):
+    """Apply an internal pre-compression intensity transform.
+
+    This internal helper exists to make lossy compression work better on skewed
+    3D microscopy volumes.
+
+    Parameters
+    ----------
+    img : ndarray
+        3D volume data.
+    transform_id : int
+        Internal transform code:
+        - ``0``: no transform
+        - ``1``: ``log(10 + max(img, 0))``
+
+    Returns
+    -------
+    ndarray
+        Transformed 3D volume.
+
+    Notes
+    -----
+    Internal-only helper for :func:`compress_image`.
+    """
     if transform_id == 0: # None
         return img
     if transform_id == 1: # Truncated log + 10
         return np.log(10+np.maximum(0, img))
 
 def _image_decompression_transform(img, transform_id):
+    """Undo internal intensity transforms after decompression.
+
+    Internal companion to :func:`_image_compression_transform`, used by
+    :func:`decompress_image`.
+
+    Parameters
+    ----------
+    img : ndarray
+        Decoded 3D volume in transformed intensity space.
+    transform_id : int
+        Internal transform code:
+        - ``0``: no transform
+        - ``1``: ``exp(img) - 10``
+
+    Returns
+    -------
+    ndarray
+        Inverse-transformed 3D volume.
+
+    Notes
+    -----
+    Internal-only helper for :func:`decompress_image`.
+    """
     if transform_id == 0: # None
         return img
     if transform_id == 1: # Truncated log + 10
         return np.exp(img)-10
 
 def _image_detect_transform(img):
+    """Pick which internal intensity transform to use before compression.
+
+    This internal helper exists so callers do not have to tune transform choice
+    manually for every 3D volume.
+
+    Parameters
+    ----------
+    img : ndarray
+        Input 3D volume.
+
+    Returns
+    -------
+    int
+        Transform code: ``1`` when skewness is high, else ``0``.
+    """
     _img = img if np.prod(img.shape) < 10000000 else img[::4,::4,::4] # Hack for big images
     if scipy.stats.skew(_img.reshape(-1)) > 25:
         return 1 # Truncated log + 10
     return 0 # None
 
 def compress_image(img, level="normal"):
+    """Compress a 3D volume for CASTalign storage.
+
+    This is the main package helper used when image volumes need to be saved in
+    graph files or passed around compactly.
+
+    Parameters
+    ----------
+    img : ndarray
+        Volume data of shape ``(Z, Y, X)`` or ``(Y, X)`` (interpreted
+        as ``(1, Y, X)``)
+    level : {'low', 'normal', 'high', 'label'}, optional
+        Compression mode.
+        - ``'label'`` forces lossless label-style compression.
+        - ``'low'``, ``'normal'``, ``'high'`` are lossy settings for
+          non-label-like data.
+
+    Returns
+    -------
+    data : bytes-like or ndarray of uint8
+        Compressed payload.
+    kind : list
+        Metadata used by :func:`decompress_image` to decode ``data``.
+    """
     assert level in ["low", "normal", "high", "label"], "Invalid level"
     # Format code 0 == no compression
     # Format code 1 == vp9 video stack
@@ -206,6 +397,23 @@ def compress_image(img, level="normal"):
         return np.concatenate(files), kind
 
 def decompress_image(data, kind):
+    """Decompress a volume payload produced by :func:`compress_image`.
+
+    This is the read-side helper used when loading graph data.
+
+    Parameters
+    ----------
+    data : bytes-like or ndarray
+        Compressed payload bytes/array.
+    kind : sequence
+        Metadata returned by :func:`compress_image`. ``kind[0]`` is the format
+        code (0/1/2/3).
+
+    Returns
+    -------
+    ndarray
+        Decompressed volume array (typically ``(Z, Y, X)``).
+    """
     if int(kind[0]) == 0:
         return data
     if int(kind[0]) == 1:
@@ -238,6 +446,23 @@ def decompress_image(data, kind):
     raise ValueError(f"Invalid kind {kind}")
 
 def invert_function_numerical(func, point):
+    """Numerically find an input point that maps to a target output point.
+
+    This is an internal optimization helper used by invert_transform_numerical.
+
+    Parameters
+    ----------
+    func : callable
+        Forward point-mapping function. It is called as
+        ``func(np.asarray([x]))``.
+    point : array-like
+        Target coordinate of shape ``(3,)``.
+
+    Returns
+    -------
+    ndarray
+        Estimated input point.
+    """
     point = np.asarray(point)
     obj = lambda x : np.sum(np.square(point-func(np.asarray([x]))))
     starts = [[0, 0, 0], point]
@@ -247,7 +472,22 @@ def invert_function_numerical(func, point):
     return min(opts, key=lambda x : x.fun).x
 
 def invert_transform_numerical(tform, points):
-    """Perform a numerical inverse transform of 'tform' at 'point'"""
+    """Invert one or more 3D points through a transform.
+
+    This is used internally for transform types without an analytic inverse.
+
+    Parameters
+    ----------
+    tform : object
+        Transform object with ``invert()`` and ``transform(...)`` methods.
+    points : array-like
+        Point(s) in ``(z, y, x)`` order. Shape ``(3,)`` or ``(N, 3)``.
+
+    Returns
+    -------
+    ndarray
+        Inverse-mapped point(s).
+    """
     points = np.asarray(points)
     try:
         if points.ndim == 2:
@@ -259,4 +499,3 @@ def invert_transform_numerical(tform, points):
     if points.ndim == 2:
         return np.asarray([invert_transform_numerical(tform, points[i]) for i in range(0, points.shape[0])])
     return invert_function_numerical(tform.transform, np.asarray([x]))
-

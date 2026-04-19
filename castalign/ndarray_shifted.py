@@ -1,6 +1,17 @@
 import numpy as np
 
 class ndarray_shifted(np.ndarray):
+    """NumPy ndarray with an attached origin offset in 3D space.
+
+    This is used to carry array data together with a spatial origin so image
+    coordinates can be interpreted in a shared 3D coordinate system without
+    copying data into a separate wrapper object.
+
+    Notes
+    -----
+    The ``origin`` attribute stores a coordinate offset (typically ``[z, y, x]``).
+    Array behavior is otherwise the same as ``numpy.ndarray``.
+    """
     def __new__(cls, a, origin=[0,0,0], only_if_necessary=False):
         if isinstance(a, cls):
             origin = a.origin
