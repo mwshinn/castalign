@@ -3,38 +3,11 @@ import concurrent.futures
 import numpy as np
 import scipy
 from .ndarray_shifted import ndarray_shifted
-from .utils import blit, invert_function_numerical, image_is_label
+from .utils import blit, image_is_label, invert_function_numerical, rotation_matrix
 import threadpoolctl
 
 # TODO:
 # - implement posttransforms, allowing the unfitted transform to be on the left hand side
-
-def rotation_matrix(z, y, x):
-    """Build a clockwise 3D rotation matrix from Euler angles.
-
-    Parameters
-    ----------
-    z : float
-        Clockwise rotation angle (degrees) around the z axis.
-    y : float
-        Clockwise rotation angle (degrees) around the y axis.
-    x : float
-        Clockwise rotation angle (degrees) around the x axis.
-
-    Returns
-    -------
-    numpy.ndarray
-        Rotation matrix with shape ``(3, 3)``.
-    """
-    sin = lambda x : np.sin(np.deg2rad(x))
-    cos = lambda x : np.cos(np.deg2rad(x))
-    zy_rotation = lambda theta : \
-        np.asarray([[cos(theta), sin(theta), 0],
-                    [-sin(theta), cos(theta), 0],
-                    [0, 0, 1]])
-    yx_rotation = lambda theta : np.roll(zy_rotation(theta), 1, axis=(0,1))
-    xz_rotation = lambda theta : np.roll(zy_rotation(theta), -1, axis=(0,1))
-    return yx_rotation(z) @ xz_rotation(y) @ zy_rotation(x)
 
 
 class Transform:
@@ -45,10 +18,12 @@ class Transform:
     full volumetric images through resampling.
 
     Conceptually, transforms in CASTalign are usually either:
+
     - point-based (see ``PointTransform``), or
     - parameterized transforms that do not use correspondence points.
 
     ``DEFAULT_PARAMETERS`` serves two purposes:
+
     - it provides default values, and
     - it defines the complete set of constructor keyword parameters accepted by
       that transform class.
@@ -64,8 +39,10 @@ class Transform:
     - Implement ``_transform(points)`` for forward mapping.
     - Implement ``invert()`` for reverse mapping.
     - Implement ``_fit()`` if parameters must be derived from point data.
+
       ``_fit()`` is called during initialization when present.
     - If there is no analytic inverse, subclass
+
       ``PointTransformNoAnalyticInverse``.
 
     Any transform must be exactly reconstructible from ``__repr__`` output.
@@ -601,6 +578,7 @@ class PointTransformNoAnalyticInverse(PointTransform):
 ########## Transforms ##########
 
 class Identity(AffineTransform,Transform):
+    """Identity transform that leaves coordinates unchanged."""
     NAME = "No transform"
     def _fit(self):
         self.matrix = np.eye(3)
@@ -636,6 +614,7 @@ class Identity(AffineTransform,Transform):
         return image
 
 class Rigid(AffineTransform,PointTransform):
+    """Rigid transform fit from points using rotation and translation."""
     NAME = "Rigid"
     SHORTCUT_KEY = "R"
     SORT_WEIGHT = -99
@@ -647,6 +626,17 @@ class Rigid(AffineTransform,PointTransform):
         self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
 
 class RigidParametric(AffineTransform,Transform):
+    """Rigid transform defined by fixed translation and rotation parameters.
+
+    Parameters
+    ----------
+    z, y, x : float, optional
+        Translation offsets in voxel coordinates.
+    zrotate, yrotate, xrotate : float, optional
+        Clockwise rotation angles (degrees) about each axis.
+    invert : bool, optional
+        If ``True``, uses the inverse rotation direction.
+    """
     NAME = "Rigid"
     SHORTCUT_KEY = "r"
     SORT_WEIGHT = -99
@@ -662,6 +652,7 @@ class RigidParametric(AffineTransform,Transform):
         return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], invert=(not self.params['invert']))
 
 class Affine(AffineTransform,PointTransform):
+    """Full affine transform fit from corresponding 3D points."""
     NAME = "Affine"
     SHORTCUT_KEY = "A"
     SORT_WEIGHT = -97
@@ -683,6 +674,21 @@ class Affine(AffineTransform,PointTransform):
         return self.__class__(points_start=self.points_end, points_end=self.points_start, invert=(not self.params["invert"]))
 
 class AffineParametric(AffineTransform,Transform):
+    """Affine transform defined by fixed translation/rotation/scale/shear.
+
+    Parameters
+    ----------
+    z, y, x : float, optional
+        Translation offsets in voxel coordinates.
+    zrotate, yrotate, xrotate : float, optional
+        Clockwise rotation angles (degrees) about each axis.
+    zscale, yscale, xscale : float, optional
+        Axis-wise scale factors.
+    yzshear, xzshear, xyshear : float, optional
+        Shear coefficients.
+    invert : bool, optional
+        If ``True``, inverts the combined affine matrix.
+    """
     NAME = "Affine"
     SHORTCUT_KEY = "a"
     SORT_WEIGHT = -94
@@ -698,14 +704,14 @@ class AffineParametric(AffineTransform,Transform):
         return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], yzshear=self.params["yzshear"], xzshear=self.params["xzshear"], xyshear=self.params["xyshear"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], invert=(not self.params["invert"]))
 
 class MatrixParametric(AffineTransform,Transform):
-    """Affine transform defined directly by matrix coefficients.
+    """Affine transform specified directly by matrix coefficients.
 
-    Exposes all 3x3 matrix entries and translation terms as parameters.
-
-    Notes
-    -----
-    Matrix validity is not checked. Invalid/singular matrices may give unstable
-    or undefined results.
+    Parameters
+    ----------
+    a11, a12, a13, a21, a22, a23, a31, a32, a33 : float, optional
+        Entries of the 3x3 affine matrix in row-major order.
+    z, y, x : float, optional
+        Translation offsets in voxel coordinates.
     """
     NAME = "Transformation matrix"
     DEFAULT_PARAMETERS = {"a11": 1, "a12": 0, "a13": 0, "a21": 0, "a22": 1, "a23": 0, "a31": 0, "a32": 0, "a33": 1, "x": 0, "y": 0, "z": 0}
@@ -762,6 +768,15 @@ class PlaneConstrainedAffine(AffineTransform,PointTransform):
         return self.__class__(points_start=self.points_end, points_end=self.points_start, invert=(not self.params["invert"]))
 
 class FlipParametric(AffineTransform,Transform):
+    """Axis-flip transform controlled by boolean flip parameters.
+
+    Parameters
+    ----------
+    z, y, x : bool, optional
+        Whether to flip along each axis.
+    zthickness, ythickness, xthickness : float or int, optional
+        Axis extents used to compute the post-flip shift.
+    """
     NAME = "Flip"
     DEFAULT_PARAMETERS = {"z": False, "y": False, "x": False, "zthickness": 0, "ythickness": 0, "xthickness": 0}
     def _fit(self):
@@ -772,6 +787,13 @@ class FlipParametric(AffineTransform,Transform):
         return self
 
 class RescaleParametric(AffineTransform,Transform):
+    """Axis-wise rescaling transform with fixed scale parameters.
+
+    Parameters
+    ----------
+    z, y, x : float, optional
+        Scale factors for each axis.
+    """
     NAME = "Rescale"
     DEFAULT_PARAMETERS = {"z": 1.0, "y": 1.0, "x": 1.0}
     SHORTCUT_KEY = "z"
@@ -1090,6 +1112,7 @@ def compose_transforms(a, b):
 
 
 class TranslateRotate2D(AffineTransform,PointTransform): # Deprecated
+    """Deprecated 2D translation-and-rotation transform."""
     NAME = "Translate and rotate in 2D only"
     def _fit(self):
         demeaned_start = self.points_start - np.mean(self.points_start, axis=0)
@@ -1100,6 +1123,7 @@ class TranslateRotate2D(AffineTransform,PointTransform): # Deprecated
         self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
 
 class Translate(AffineTransform,PointTransform):
+    """Translation-only transform fit from corresponding points."""
     NAME = "Translate"
     SORT_WEIGHT = -100
     def _fit(self):
@@ -1107,6 +1131,7 @@ class Translate(AffineTransform,PointTransform):
         self.shift = np.mean(self.points_start - self.points_end, axis=0)
 
 class Flip(AffineTransform,Transform): # Deprecated
+    """Deprecated parametric axis-flip transform."""
     NAME = "Flip"
     DEFAULT_PARAMETERS = {"z": False, "y": False, "x": False, "zthickness": 0, "ythickness": 0, "xthickness": 0}
     def _fit(self):
@@ -1117,6 +1142,13 @@ class Flip(AffineTransform,Transform): # Deprecated
         return self
 
 class TranslateParametric(AffineTransform,Transform):
+    """Translation-only transform with fixed z/y/x offsets.
+
+    Parameters
+    ----------
+    z, y, x : float, optional
+        Translation offsets in voxel coordinates.
+    """
     NAME = "Translate"
     DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0}
     GUI_DRAG_PARAMETERS = ["z", "y", "x"]
@@ -1127,6 +1159,19 @@ class TranslateParametric(AffineTransform,Transform):
         return self.__class__(x=-self.params["x"], y=-self.params["y"], z=-self.params["z"])
 
 class TranslateRotateRescaleParametric(AffineTransform,Transform): # Deprecated
+    """Deprecated parametric translation-rotation-scale transform.
+
+    Parameters
+    ----------
+    z, y, x : float, optional
+        Translation offsets in voxel coordinates.
+    zrotate, yrotate, xrotate : float, optional
+        Clockwise rotation angles (degrees) about each axis.
+    zscale, yscale, xscale : float, optional
+        Axis-wise scale factors.
+    invert : bool, optional
+        If ``True``, inverts the composed transform.
+    """
     NAME = "Translate, rotate, and rescale"
     #SHORTCUT_KEY = "r"
     SORT_WEIGHT = -98
@@ -1142,6 +1187,17 @@ class TranslateRotateRescaleParametric(AffineTransform,Transform): # Deprecated
         return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], invert=(not self.params['invert']))
 
 class TranslateRotateRescale2DParametric(AffineTransform,Transform): # Deprecated
+    """Deprecated 2D parametric translation-rotation-scale transform.
+
+    Parameters
+    ----------
+    y, x : float, optional
+        In-plane translation offsets.
+    rotate : float, optional
+        Clockwise in-plane rotation angle (degrees).
+    scale : float, optional
+        In-plane isotropic scale factor.
+    """
     DEFAULT_PARAMETERS = {"y": 0.0, "x": 0.0, "rotate": 0.0, "scale": 1.0}
     GUI_DRAG_PARAMETERS = [None, "y", "x"]
     def _fit(self):
@@ -1152,6 +1208,15 @@ class TranslateRotateRescale2DParametric(AffineTransform,Transform): # Deprecate
         return self.__class__(rotate=-self.params["rotate"], y=-newzyx[1], x=-newzyx[2], scale=1/self.params["scale"])
 
 class ShearParametric(AffineTransform,Transform): # Deprecated
+    """Deprecated parametric shear transform with optional shifts.
+
+    Parameters
+    ----------
+    yzshear, xzshear, xyshear : float, optional
+        Shear coefficients.
+    zshift, yshift, xshift : float, optional
+        Translation offsets applied with shear.
+    """
     NAME = "Shear"
     DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0, "zshift": 0, "yshift": 0, "xshift": 0}
     # SHORTCUT_KEY = "z"
@@ -1167,6 +1232,7 @@ class ShearParametric(AffineTransform,Transform): # Deprecated
 
 # This doesn't work very well
 class DistanceWeightedAverageGaussian(PointTransformNoAnalyticInverse): # Deprecated
+    """Deprecated nonlinear displacement-field transform with Gaussian weighting."""
     DEFAULT_PARAMETERS = {"extent": 1, "invert": False}
     def _transform(self, points, points_start, points_end):
         points = np.asarray(points, dtype="float")

@@ -4,22 +4,22 @@
 
 There are three main components:
 
-1. **[Transforms](api.md#transform)**.  A transform allows you to get from an input space to a target
+1. **[Transforms](api)**.  A transform allows you to get from an input space to a target
    space through affine or nonlinear transforms.  It allows you to pass points
    or images from the input space to the target space.  For instance, a rotation
-   matrix with a shift is an example of a [Transform](api.md#transform).  There are many included by
-   default, but you can also create your own.  [Transforms](api.md#transform) can be composed and
-   edited.  [Transforms](api.md#transform) are the foundation of this library.
-2. **GUIs to create [Transforms](api.md#transform)**.  It can be difficult to find the correct
+   matrix with a shift is an example of a [Transform](api).  There are many included by
+   default, but you can also create your own.  [Transforms](api) can be composed and
+   edited.  [Transforms](api) are the foundation of this library.
+2. **GUIs to create [Transforms](api)**.  It can be difficult to find the correct
    parameters for a transform, so multiple GUIs can assist you.  The simplest
-   one (([`alignment_gui()`](api.md#alignment_gui))) allows you to pass two volumes and a [Transform](api.md#transform),
-   and then interactively use that [Transform](api.md#transform) to align the volumes.  A more
-   advanced one ([`align_interactive()`](api.md#align_interactive)) allows you to align in steps by
-   composing different [Transforms](api.md#transform) together.
-3. **Graphs to manage networks of [Transforms](api.md#transform)**.  In many practical applications,
+   one (([`alignment_gui()`](api))) allows you to pass two volumes and a [Transform](api),
+   and then interactively use that [Transform](api) to align the volumes.  A more
+   advanced one ([`align_interactive()`](api)) allows you to align in steps by
+   composing different [Transforms](api) together.
+3. **Graphs to manage networks of [Transforms](api)**.  In many practical applications,
    you may need to align many different images to the same target image, or
    other complex relationships between images.  It can quickly become unwieldly
-   to organise all of these [Transforms](api.md#transform) and their corresponding images.  [Graphs](api.md#graph)
+   to organise all of these [Transforms](api) and their corresponding images.  [Graphs](api)
    make it easy to keep everything organised.  Several convenience methods are
    included for aligning within a graph.
 
@@ -33,72 +33,72 @@ nearly all other Python image libraries, and so usually you should not need to
 think about this.
 
 CASTalign also uses an extension on numpy ndarrays to specify a coordinate
-system origin.  These objects are called "[ndarray_shifted](api.md#ndarray_shifted)".  If you do not care
+system origin.  These objects are called "[ndarray_shifted](api)".  If you do not care
 about the shift, you can use them like a normal numpy array.
 
-## [Transforms](api.md#transform)
+## [Transforms](api)
 
-A *[Transform](api.md#transform)* takes you from one coordinate space (the input space) to another
+A *[Transform](api)* takes you from one coordinate space (the input space) to another
 coordinate space (the target space).  The input is the "movable" image and the
 target is the "base".  For instance, suppose you have a volumetric image , and a
-second volumetric image rescaled to have uniform voxel size of 1um.  A [Transform](api.md#transform)
+second volumetric image rescaled to have uniform voxel size of 1um.  A [Transform](api)
 could map points or images between the raw and rescaled coordinate spaces.
 
-There are many types of [Transforms](api.md#transform) included by default.  These fall into two
+There are many types of [Transforms](api) included by default.  These fall into two
 main categories:
 
-- *Parameter-based Transforms* use parametric values to define the [Transform](api.md#transform).
-  For instance, [TranslateParametric](api.md#translateparametric) is a parameter-based [Transform](api.md#transform) that receives an
+- *Parameter-based Transforms* use parametric values to define the [Transform](api).
+  For instance, [TranslateParametric](api) is a parameter-based [Transform](api) that receives an
   explicit z, y, and x shift.
-- *Point-based Transforms* use a point cloud to define the [Transform](api.md#transform).  For
-  point-based [Transforms](api.md#transform), you must define the starting and ending positions of
-  several keypoints.  For instance, a [Translate](api.md#translate) will find the z, y, and x
+- *Point-based Transforms* use a point cloud to define the [Transform](api).  For
+  point-based [Transforms](api), you must define the starting and ending positions of
+  several keypoints.  For instance, a [Translate](api) will find the z, y, and x
   shifts that best fit the keypoints.  You can choose these keypoints from a
-  gui.  Some point-based [Transforms](api.md#transform) may also include parameters, such as a
-  smoothness hyperparameter or a normal vector along which the [Transform](api.md#transform) should
+  gui.  Some point-based [Transforms](api) may also include parameters, such as a
+  smoothness hyperparameter or a normal vector along which the [Transform](api) should
   occur.
 
-**[Transforms](api.md#transform) are invertible.**  You can use the [`Transform.invert()`](api.md#transforminvert) function to perform
-the inversion.  This occurs analytically for most [Transforms](api.md#transform).
+**[Transforms](api) are invertible.**  You can use the [`Transform.invert()`](api) function to perform
+the inversion.  This occurs analytically for most [Transforms](api).
 
-**[Transforms](api.md#transform) may be specified or unspecified.**  A specified [Transform](api.md#transform) includes
+**[Transforms](api) may be specified or unspecified.**  A specified [Transform](api) includes
 values for each of its parameters, and matching point clouds if it is a
-Point-based [Transform](api.md#transform).  This is represented by an instance of the class.  An
-unspecified [Transform](api.md#transform) does not yet have chosen parameters or points, and is
+Point-based [Transform](api).  This is represented by an instance of the class.  An
+unspecified [Transform](api) does not yet have chosen parameters or points, and is
 represented by the uninsantiated class.  For instance,
 ``TranslateParametric(x=3,y=0,z=1)`` is specified, but ``TranslateParametric`` is
-unspecified.  You cannot apply an unspecified [Transform](api.md#transform) to points or an image,
+unspecified.  You cannot apply an unspecified [Transform](api) to points or an image,
 because you have not yet defined what the transform should do.  Unspecified
 transforms can be made specified through the GUI, or by calling them with the
 appropriate parameters.
 
-**[Transforms](api.md#transform) are composable.**  If you have two [Transforms](api.md#transform), you can add them
-together to get their composition.  For instance, the [Transform](api.md#transform) that first
-applies [Transform](api.md#transform) A and then applied [Transform](api.md#transform) B can be written in Python as
-`A + B`. Two specified [Transforms](api.md#transform) may be composed, and their composition gives
-another specified [Transform](api.md#transform).  A specified and unspecified [Transform](api.md#transform) may also be
+**[Transforms](api) are composable.**  If you have two [Transforms](api), you can add them
+together to get their composition.  For instance, the [Transform](api) that first
+applies [Transform](api) A and then applied [Transform](api) B can be written in Python as
+`A + B`. Two specified [Transforms](api) may be composed, and their composition gives
+another specified [Transform](api).  A specified and unspecified [Transform](api) may also be
 composed, but their composition gives an unspecified transform.  Currently, the
-unspecified [Transform](api.md#transform) must be the final term in the sum.  Two unspecified
-[Transforms](api.md#transform) cannot be composed.
+unspecified [Transform](api) must be the final term in the sum.  Two unspecified
+[Transforms](api) cannot be composed.
 
-**[Transforms](api.md#transform) are lossless.**  If you compose 
+**[Transforms](api) are lossless.**  If you compose 
 ``RescaleParametric(x=.5, y=.5, z=.5) + RescaleParametric(x=2, y=2, z=2)`` 
 and apply it to an image, the result will be identical
 to your starting image, without the artifacts from resizing the image.  More
 generally, under the hood, a long chain of composed transforms will all be
 applied at once.
 
-**All the information needed to save a [Transform](api.md#transform) comes from its text
+**All the information needed to save a [Transform](api) comes from its text
 representation.**  So, you can simply call "print" and then copy and paste it
-somewhere, or save the text of the [Transform](api.md#transform) to a text file.  The string
+somewhere, or save the text of the [Transform](api) to a text file.  The string
 representation is executable Python code that you can run to recreate your
-[Transform](api.md#transform).  Nevertheless, there is also a [`Transform.save()`](api.md#transformsave)
+[Transform](api).  Nevertheless, there is also a [`Transform.save()`](api)
 function which does this for you.
 
-### List of [Transforms](api.md#transform)
+### List of [Transforms](api)
 
 Different transforms are useful for different types of data.  For different
-geometries of input (movable) images, different [Transforms](api.md#transform) may be advantageous.
+geometries of input (movable) images, different [Transforms](api) may be advantageous.
 Input images can be approximately one of three types:
 
 - *Cake*: Approximately equally thick in all three dimensions.  For example, a
@@ -110,59 +110,57 @@ Input images can be approximately one of three types:
   useful information or does not exist at all (e.g. only one voxel thick). For
   example, a two-dimensional imaging plane.
 
-[Transforms](api.md#transform) may be affine (linear) or non-linear.  Affine [Transforms](api.md#transform), under the
+[Transforms](api) may be affine (linear) or non-linear.  Affine [Transforms](api), under the
 hood, use the equation ``points @ self.matrix + self.shift`` to transform
 points.
 
-While creating your own [Transform](api.md#transform) is easy, the following [Transforms](api.md#transform) are included
+While creating your own [Transform](api) is easy, the following [Transforms](api) are included
 by default:
 
+See also the [Transforms Gallery](transforms_gallery) for visual examples and parameter/default summaries.
+
+| Name | Cake | Pancake | Rice paper | Point-based | Affine |
+|------|------|---------|------------|-------------|--------|
+| [Identity](api) | X | X | X |  | X |
+| [Translate](api) | X | X | X | X | X |
+| [TranslateParametric](api) | X | X | X |  | X |
+| [Rigid](api) | X | X | X | X | X |
+| [RigidParametric](api) | X | X | X |  | X |
+| [Affine](api) | X | † |  | X | X |
+| [AffineParametric](api) | X | † |  |  | X |
+| [PlaneConstrainedAffine](api) |  | X | X | X | X |
+| [FlipParametric](api) | X | X | X |  | X |
+| [MatrixParametric](api) | X | X | X |  | X |
+| [RescaleParametric](api) | X | X | X |  | X |
+| [Triangulation](api) | X |  |  | X |  |
+| [PlaneConstrainedTriangulation](api) |  | X | ‡ | X |  |
 
 
-| Name                          | Cake | Pancake | Rice paper | Point-based | Invertable | Affine | Description                                                                       |
-|-------------------------------|------|---------|------------|-------------|------------|--------|-----------------------------------------------------------------------------------|
-| [Identity](api.md#identity)                      | X    | X       | X          |             | X          | X      | Do nothing                                                                        |
-| [Translate](api.md#translate)                     | X    | X       | X          | X           | X          | X      | Translation                                                                       |
-| [TranslateParametric](api.md#translateparametric)                | X    | X       | X          |             | X          | X      | Translation                                                                       |
-| [Rigid](api.md#rigid)               | X    | X       | X          | X           | X          | X      | Translation and rotation                                                          |
-| [RigidParametric](api.md#rigidparametric)          | X    | X       | X          |             | X          | X      | Translation and rotation                                                          |
-| [Affine](api.md#affine)        | X    | †       |            | X           | X          | X      | Translation, rotation, rescaling                                                  |
-| [PlaneConstrainedAffine](api.md#planeconstrainedaffine) |      | X       | X          | X           | X          | X      | Translation, rotation, rescaling, independently for lowest-variance dimension     |
-| [TranslateRotateRescaleParametric](api.md#translaterotaterescaleparametric)   | X    | X       | X          |             | X          | X      | Translation, rotation, rescaling                                                  |
-| [FlipParametric](api.md#flipparametric)                     | X    | X       | X          |             | X          | X      | Flip across an axis                                                               |
-| [ShearParametric](api.md#shearparametric)                    | X    | X       | X          |             | X          | X      | Apply shear along a plane                                                         |
-| [MatrixParametric](api.md#matrixparametric)                   | X    | X       | X          |             | X          | X      | Directly enter an augmented matrix                                                |
-| [RescaleParametric](api.md#rescaleparametric)                       | X    | X       | X          |             | X          | X      | Rescale, i.e. downsample or upsample (lossless)                                   |
-| [Triangulation](api.md#triangulation)                 | X    |         |            | X           | X          |        | Perform piecewise affine transforms between a triangulation of the control points |
-| [PlaneConstrainedTriangulation](api.md#planeconstrainedtriangulation)               |      | X       | ‡          | X           | X          |        | Project to a 2D space, perform piecewise 2D transforms, and then return to 3D     |
-| [DistanceWeightedAverageGaussian](api.md#distanceweightedaveragegaussian)       | X    | X       |            | X           |            |        | Compute a displacement field as a distance weighted average of control points     |
-
-
-† It is possible to do a successful [Affine](api.md#affine) with a pancake
+† It is possible to do a successful [Affine](api) with a pancake
 geometry, but make sure to match at least one point at the top and bottom near
 each of the four corners.  Otherwise, shear effects will dominate the transform.
 
-‡ When using [PlaneConstrainedTriangulation](api.md#planeconstrainedtriangulation) with a movable image that has a rice paper
+‡ When using [PlaneConstrainedTriangulation](api) with a movable image that has a rice paper
 geometry, it is generally more effective to set the rice paper image as the
 target image when performing the alignment.
 
-### Using a [Transform](api.md#transform)
+### Using a [Transform](api)
 
 There are two important methods:
 
-- [`Transform.transform(points)`](api.md#transformtransform) will apply the transform to either a single
+- [`Transform.transform(points)`](api) will apply the transform to either a single
   point, or to a list of points.  If ``points`` is a matrix, there should be
   three columns, corresponding to z, y, and x.
-- [`Transform.transform_image(im)`](api.md#transformtransform_image) will apply the transform to an image.  There
+- [`Transform.transform_image(im)`](api) will apply the transform to an image.  There
   are more arguments controlling how the image is generated, see the function
   documentation for more information.  The transformed image this function
-  returns will be an "[ndarray_shifted](api.md#ndarray_shifted)", so if you plot it outside of the
-  [Transform](api.md#transform) library, it may not appear to be aligned unless you shift it by the
+  returns will be an "[ndarray_shifted](api)", so if you plot it outside of the
+  [Transform](api) library, it may not appear to be aligned unless you shift it by the
   position of the origin.  See the function documentation for more information.
 
 ### Examples
 
-As a simple example, let's consider [TranslateParametric](api.md#translateparametric).  Here we show how to
+As a simple example, let's consider [TranslateParametric](api).  Here we show how to
 transform points, as well as perform a composition of two transforms.
 
 ``` python
@@ -207,19 +205,19 @@ We will show examples of point-based transforms once we explore the GUI.
 
 ## GUI
 
-This library contains a GUI based on Napari that can be used to fit [Transforms](api.md#transform)
-by hand, seeing the changes interactively as the [Transform](api.md#transform) is edited.  There are
+This library contains a GUI based on Napari that can be used to fit [Transforms](api)
+by hand, seeing the changes interactively as the [Transform](api) is edited.  There are
 two primary interactive functionalities of the GUI:
 
-- Adjusting [Transform](api.md#transform) parameters
-- Selecting points for point-based [Transforms](api.md#transform)
+- Adjusting [Transform](api) parameters
+- Selecting points for point-based [Transforms](api)
 
 There are two ways to access the GUI.  The first, using the function
-[`alignment_gui()`](api.md#alignment_gui), allows you to create or edit a single [Transform](api.md#transform).  If you
-pass it an unspecified [Transform](api.md#transform), it will create a new specified [Transform](api.md#transform).  If
+[`alignment_gui()`](api), allows you to create or edit a single [Transform](api).  If you
+pass it an unspecified [Transform](api), it will create a new specified [Transform](api).  If
 you pass it a specified transform, it will allow you to edit it.
 
-The second function is [`align_interactive()`](api.md#align_interactive), which allows you to create
+The second function is [`align_interactive()`](api), which allows you to create
 chains of composed transforms.  For example, it is often useful to perform a
 manual translation or rotation before selecting keypoints for a point-based
 transform, because it makes it easier to find the matching keypoints in both
@@ -234,28 +232,28 @@ box "real-time" is selected, then every edit of these boxes will change the
 value.  If real-time is not selected, you need to press the "Perform transform"
 button after each edit.
 
-For [Transforms](api.md#transform) that involve translation, you can adjust this interactively using
+For [Transforms](api) that involve translation, you can adjust this interactively using
 drag-and-drop with the mouse.  Simply hold down the Ctrl key, and then you can
 drag-and-drop the movable image.  Note that this is only available in Napari's
 2D visualisation, not the 3D visualisation.  Also note that you will only see
 the results of this if the "real-time" checkbox is selected.
 
-### Selecting points for point-based [Transforms](api.md#transform)
+### Selecting points for point-based [Transforms](api)
 
 First, click on the "Add point" button on the side panel.  The "base" layer will
 be highlighted and the "movable" layer will fade into the background.  Select
 the key point on this layer by left clicking.  Once you do, this will fade into
 the background and the "movable" layer will be highlighted.  Left click to
 select the keypoint on this layer.  Continue adding keypoints until you have a
-sufficient number for your [Transform](api.md#transform), and then click "Perform transform" to
-morph the movable image according to your [Transform](api.md#transform).
+sufficient number for your [Transform](api), and then click "Perform transform" to
+morph the movable image according to your [Transform](api).
 
 If the location of the keypoint is brighter than its surroundings, such as a
 cell, you can right click instead of left click, and the location of peak
 brightness near the cursor will be detected, and the keypoint will be placed here.
 
-If you wish to revert to the original [Transform](api.md#transform), click the "revert" button.  The
-keypoints will be saved, but the original [Transform](api.md#transform) will be applied, ignoring
+If you wish to revert to the original [Transform](api), click the "revert" button.  The
+keypoints will be saved, but the original [Transform](api) will be applied, ignoring
 the keypoints.  Note that the active transform displayed on the screen will be
 the one returned, so if you revert before closing the window, the keypoints will
 not be saved.  Likewise, if you do not click "perform transform" before closing,
@@ -273,51 +271,51 @@ the previously performed transform will be returned.
 
 
 
-### [Graphs](api.md#graph)
+### [Graphs](api)
 
-With most real-world data, many [Transforms](api.md#transform) will be needed, and all of these
-[Transforms](api.md#transform) will relate to each other, possibly in complex ways.  It can quickly
-become difficult to manage which [Transform](api.md#transform) takes you from which space to which
-other space.  We can organise all of these [Transforms](api.md#transform) into a [Graph](api.md#graph).
+With most real-world data, many [Transforms](api) will be needed, and all of these
+[Transforms](api) will relate to each other, possibly in complex ways.  It can quickly
+become difficult to manage which [Transform](api) takes you from which space to which
+other space.  We can organise all of these [Transforms](api) into a [Graph](api).
 
-A [Graph](api.md#graph) is an undirected graph of [Transforms](api.md#transform) from each space to each
+A [Graph](api) is an undirected graph of [Transforms](api) from each space to each
 other space.  Each space (e.g., image) is identified by a unique name, and is
 represented by a node in the graph.  Each edge connecting the nodes in the graph
-is a [Transform](api.md#transform).  To create a new node in a [Graph](api.md#graph) ``g``, run
-[`g.add_node(node_name)`](api.md#graphadd_node).  To specify a [Transform](api.md#transform) between two nodes, i.e., an
-edge, run [`g.add_edge(node1, node2, tform)`](api.md#graphadd_edge).
+is a [Transform](api).  To create a new node in a [Graph](api) ``g``, run
+[`g.add_node(node_name)`](api).  To specify a [Transform](api) between two nodes, i.e., an
+edge, run [`g.add_edge(node1, node2, tform)`](api).
 
 This library always uses the "from -> to" convention in the order of arguments.
-So in the previous example, the [Transform](api.md#transform) ``tform`` converts points in space
+So in the previous example, the [Transform](api) ``tform`` converts points in space
 ``node1`` to the space ``node2``.  Or, equivalently, "movable image -> base
 image", where ``node1`` is the movable image and ``node2`` is the base image.
 
 To obtain the transform between two nodes, use the function
-[`g.get_transform(node1, node2)`](api.md#graphget_transform).  Even if ``node1`` and ``node2`` are not
-directly connected, the shortest path of [Transform](api.md#transform) compositions will be computed
+[`g.get_transform(node1, node2)`](api).  Even if ``node1`` and ``node2`` are not
+directly connected, the shortest path of [Transform](api) compositions will be computed
 and returned.  If two nodes have no connection, this will raise an error.
 
-To visualise the structure of the graph, run [`g.visualise()`](api.md#graphvisualise).  For extremely
+To visualise the structure of the graph, run [`g.visualise()`](api).  For extremely
 large graphs, you can use the "nearby" argument to specify a node, and the
 visualisation will only include nodes directly connected to the given node.
 
-Often, a [Graph](api.md#graph) may also contain the raw images themselves.  This is accomplished
-by passing the "image" argument to [`g.add_node`](api.md#graphadd_node).  The images will be
+Often, a [Graph](api) may also contain the raw images themselves.  This is accomplished
+by passing the "image" argument to [`g.add_node`](api).  The images will be
 aggressively compressed with minimal loss in quality through the use of video
 codecs, with compression rates on high-resolution microscopy images often
 approaching 100:1 or higher.
 
 When images are included directly, several convenience methods can be used.
-Most notably, the [`GraphViewer`](api.md#graphviewer) is a napari viewer that accepts node names as
+Most notably, the [`GraphViewer`](api) is a napari viewer that accepts node names as
 image or label layers.  The base coordinate system is the first added image, and
 all subsequent added images will be transformed into the space of first image.
-If there is no path of [Transforms](api.md#transform) in the graph, adding the other images will
-return an error.  Additionally, it allows using [`graph_alignment_gui`](api.md#graph_alignment_gui), a
-shortcut version of [`alignment_gui()`](api.md#alignment_gui) that accepts node names instead of images.
+If there is no path of [Transforms](api) in the graph, adding the other images will
+return an error.  Additionally, it allows using [`graph_alignment_gui`](api), a
+shortcut version of [`alignment_gui()`](api) that accepts node names instead of images.
 
-### [ndarray_shifted](api.md#ndarray_shifted)
+### [ndarray_shifted](api)
 
-Normally you should not encounter [ndarray_shifted](api.md#ndarray_shifted) objects.  This is an internal data
+Normally you should not encounter [ndarray_shifted](api) objects.  This is an internal data
 storage which adds a origin offset to an NDArray.  This allows efficient
 representation and modification of images which undergoes translation relative
 to another image.

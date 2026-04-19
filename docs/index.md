@@ -24,6 +24,16 @@ Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs f
 ## Documentation Map
 
 - [Tutorial](tutorial.md): Conceptual overview, examples, and GUIs.
-- [API Reference](api.md): Public classes and functions.
+- [Transforms Gallery](transforms_gallery): Visual transform examples with geometry and parameter defaults.
+- [API Reference](api): Public classes and functions.
 - [Contact](contact.md): Questions, bugs, and feedback.
 
+```{toctree}
+:maxdepth: 2
+:caption: Contents
+
+tutorial
+transforms_gallery
+api
+contact
+```

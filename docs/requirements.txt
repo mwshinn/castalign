@@ -1,1 +1,3 @@
-mkdocs
+sphinx
+sphinx-rtd-theme
+myst-parser

@@ -14,6 +14,33 @@ try: # Work around skimage bug in some versions
 except TypeError:
     phase_correlation = lambda x,y : skimage.registration.phase_cross_correlation(x, y)
 
+def rotation_matrix(z, y, x):
+    """Build a clockwise 3D rotation matrix from Euler angles.
+
+    Parameters
+    ----------
+    z : float
+        Clockwise rotation angle (degrees) around the z axis.
+    y : float
+        Clockwise rotation angle (degrees) around the y axis.
+    x : float
+        Clockwise rotation angle (degrees) around the x axis.
+
+    Returns
+    -------
+    numpy.ndarray
+        Rotation matrix with shape ``(3, 3)``.
+    """
+    sin = lambda x : np.sin(np.deg2rad(x))
+    cos = lambda x : np.cos(np.deg2rad(x))
+    zy_rotation = lambda theta : \
+        np.asarray([[cos(theta), sin(theta), 0],
+                    [-sin(theta), cos(theta), 0],
+                    [0, 0, 1]])
+    yx_rotation = lambda theta : np.roll(zy_rotation(theta), 1, axis=(0,1))
+    xz_rotation = lambda theta : np.roll(zy_rotation(theta), -1, axis=(0,1))
+    return yx_rotation(z) @ xz_rotation(y) @ zy_rotation(x)
+
 def blit(source, target, loc):
     """Paste one 3D block into another, clipping to valid bounds.
 
@@ -66,14 +93,23 @@ def bake_images(im_fixed, im_movable, transform):
         Fixed/reference 3D volume in shape ``(Z, Y, X)``.
     im_movable : ndarray or ndarray_shifted
         Movable 3D volume in ``(Z, Y, X)`` order.
-    transform : object
+    transform : castalign.base.Transform
         Transform that maps movable-space coordinates into fixed-space
         coordinates
 
     Returns
     -------
-    ndarray_shifted
+    castalign.ndarray_shifted.ndarray_shifted
         Combined 3D volume in absolute coordinates.
+
+    See Also
+    --------
+    castalign.base.Transform.transform_image
+        Method used to resample the movable image into the fixed frame.
+    castalign.base.Transform.origin_and_maxpos
+        Method used to estimate transformed bounds before baking.
+    castalign.utils.blit
+        Internal helper used for clipped array placement.
     """
     origin = transform.origin_and_maxpos(im_movable)[0]
     ti = transform.transform_image(im_movable)
@@ -106,6 +142,13 @@ def absolute_coords_to_voxel_coords(img, coords):
     -------
     ndarray of int
         Rounded voxel indices: ``round(coords - img.origin)``.
+
+    See Also
+    --------
+    castalign.utils.voxel_coords_to_absolute_coords
+        Inverse conversion from voxel indices to absolute coordinates.
+    castalign.ndarray_shifted.ndarray_shifted
+        Array type that stores the ``origin`` used by this conversion.
     """
     if not isinstance(img, ndarray_shifted):
         img = ndarray_shifted(img)
@@ -114,7 +157,7 @@ def absolute_coords_to_voxel_coords(img, coords):
 def voxel_coords_to_absolute_coords(img, coords):
     """Convert voxel indices to absolute coordinates for a 3D volume.
 
-    This is the inverse of :func:`absolute_coords_to_voxel_coords`.
+    This is the inverse of :func:`castalign.utils.absolute_coords_to_voxel_coords`.
 
     Parameters
     ----------
@@ -127,6 +170,13 @@ def voxel_coords_to_absolute_coords(img, coords):
     -------
     ndarray
         Absolute coordinates: ``coords + img.origin``.
+
+    See Also
+    --------
+    castalign.utils.absolute_coords_to_voxel_coords
+        Inverse conversion from absolute coordinates to voxel indices.
+    castalign.ndarray_shifted.ndarray_shifted
+        Array type that stores the ``origin`` used by this conversion.
     """
     if not isinstance(img, ndarray_shifted):
         img = ndarray_shifted(img)
@@ -149,6 +199,15 @@ def crop_to_intersection(img1, img2):
     -------
     tuple of ndarray_shifted
         ``(img1_crop, img2_crop)`` with the same origin and shape.
+
+    See Also
+    --------
+    castalign.utils.absolute_coords_to_voxel_coords
+        Coordinate conversion used to compute voxel slices at the intersection.
+    castalign.utils.voxel_coords_to_absolute_coords
+        Coordinate conversion used to compute absolute intersection bounds.
+    castalign.ndarray_shifted.ndarray_shifted
+        Shift-aware array class used for inputs and outputs.
     """
     if not isinstance(img1, ndarray_shifted):
         img1 = ndarray_shifted(img1)
@@ -322,8 +381,10 @@ def compress_image(img, level="normal"):
         as ``(1, Y, X)``)
     level : {'low', 'normal', 'high', 'label'}, optional
         Compression mode.
+
         - ``'label'`` forces lossless label-style compression.
         - ``'low'``, ``'normal'``, ``'high'`` are lossy settings for
+
           non-label-like data.
 
     Returns
