@@ -130,11 +130,13 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
     be set using sliders and text boxes on the side of the GUI, and translation
     parameters can be set by holding Ctrl+Shift to drag and drop the image.  If
     it is a point-based transform, tools will be shown to select corresponding
-    points in the two images.  The transform can be applied in real-time with
-    each change, or applied by clicking a button.  When the GUI is closed, this
-    function returns the most recent transform to be applied.  (So, if you have
-    selected additional points but not yet visualised them by clicking "Apply
-    transform", the most recently added points will not be included.)
+    points in the two images.  (Left clicking selects the point at the cursor,
+    and right clicking selects the nearest local maximum of a low pass filtered
+    image.)  The transform can be applied in real-time with each change, or
+    applied by clicking a button.  When the GUI is closed, this function returns
+    the most recent transform to be applied.  (So, if you have selected
+    additional points but not yet visualised them by clicking "Apply transform",
+    the most recently added points will not be included.)
 
     The base image(s) and movable image(s( can be any of the following:
 
@@ -785,6 +787,9 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
        stage.
     3. In the editor, adjust parameters and/or corresponding points, then close
        the editor to return to this dialog with the updated transform chain.
+       Note that when selecting points, you can left click to select the point
+       under the cursor, or right click to select the nearest local maximum near
+       the cursor.
     4. Use "Modify / other actions" to edit/view/remove/undo/flip/toggle
        references or save.
     5. For point-based transforms, use extend (``x`` prefix) or convert
