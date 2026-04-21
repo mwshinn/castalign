@@ -1,4 +1,5 @@
 import os
+from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings
 import concurrent.futures
 import numpy as np
 import scipy

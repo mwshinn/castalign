@@ -1,5 +1,6 @@
 from . import base as transform
 import numpy as np
+from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings
 from . import ndarray_shifted as ndarray_shifted
 from . import utils
 import os
@@ -226,6 +227,7 @@ class Graph:
         try:
             properties = {
                 'name': self.name,
+                'file_format_version': str(CURRENT_FILE_FORMAT_VERSION),
                 'edges': repr(self.edges),
                 'metadata': repr(self.metadata),
                 'node_metadata': repr(self.node_metadata),
@@ -322,7 +324,14 @@ class Graph:
             cur.execute("SELECT key, value FROM graph_properties")
             props = dict(cur.fetchall())
 
-            g.edges = eval(props['edges'], transform.__dict__, transform.__dict__)
+            try:
+                version = int(props.get("file_format_version", "1"))
+            except Exception:
+                version = 1
+            edges_text = props['edges']
+            if version == 1:
+                edges_text = apply_legacy_class_remappings(edges_text)
+            g.edges = eval(edges_text, transform.__dict__, transform.__dict__)
             g.metadata = eval(props.get('metadata', 'None'))
             g.node_metadata = eval(props.get('node_metadata', '{}'))
 
@@ -361,7 +370,8 @@ class Graph:
         g = cls(str(f['name']))
 
         g.nodes = list(map(str, f['nodes']))
-        g.edges = eval(str(f['edges']), transform.__dict__, transform.__dict__)
+        edges_text = apply_legacy_class_remappings(str(f['edges']))
+        g.edges = eval(edges_text, transform.__dict__, transform.__dict__)
         if "metadata" in f.keys():
             g.metadata = eval(str(f['metadata']))
         if "notes" in f.keys():
@@ -862,11 +872,11 @@ class Graph:
                     continue
                 if e1 in self.edges[e2].keys() and self.edges[e1][e2].__class__.__name__ == self.edges[e2][e1].__class__.__name__:
                     if e1 > e2 and self.edges[e1][e2].__class__.__name__ != "Identity":
-                        g.edge(ur_node[e1], ur_node[e2], label=self.edges[e1][e2].__class__.__name__, dir="both")
+                        g.edge(ur_node[e1], ur_node[e2], label=self.edges[e1][e2].NAME, dir="both")
                         ur_nodes_used.add(ur_node[e1])
                         ur_nodes_used.add(ur_node[e2])
                 else:
-                    g.edge(ur_node[e1], ur_node[e2], label=self.edges[e1][e2].__class__.__name__)
+                    g.edge(ur_node[e1], ur_node[e2], label=self.edges[e1][e2].NAME)
                     ur_nodes_used.add(ur_node[e1])
                     ur_nodes_used.add(ur_node[e2])
         for n in sorted(ur_nodes_used):
