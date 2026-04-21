@@ -25,6 +25,7 @@ Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs f
 
 - [Tutorial](tutorial): Conceptual overview, examples, and GUIs.
 - [Transforms Gallery](transforms_gallery): Visual transform examples with geometry and parameter defaults.
+- [FAQs](faqs): FAQs
 - [API Reference](api): Public classes and functions.
 - [Contact](contact.md): Questions, bugs, and feedback.
 
@@ -35,6 +36,7 @@ Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs f
 self
 tutorial
 transforms_gallery
+faqs
 api
 contact
 ```
