@@ -41,5 +41,14 @@ triangulation with many control points**.  This can only be fixed by reducing
 the number of control points.
 
 A final reason why CASTalign may be slower than expected is if
-**GPU-acceleration is unavailable**.  While CAStalign is still relatively fast
-on the CPU, it should be about 5x faster if pytorch is available.
+**GPU-acceleration is unavailable**.  While CASTalign is still relatively fast
+on the CPU, it should be about 2-3x faster if cupy is available.  You can check
+whether GPU acceleration is available with:
+
+```python
+>>> import castalign as ca
+>>> print("Yes" if ca.base.GPU_AVAILABLE else "No")
+```
+
+If it is not available, install CuPy and check their documentation to ensure it
+can find your GPU.

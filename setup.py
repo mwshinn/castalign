@@ -10,7 +10,7 @@ with open("README.md", "r") as f:
 setup(
     name = "castalign",
     version = __version__,
-    description =  "Coppafish, Antibody Staining, and Two-photon alignment: 3D nonlinear alignment for microscopy and in vivo imaging",
+    description =  "Coppafish, Antibody Staining, and Two-photon alignment: 3D alignment framework for microscopy and in vivo imaging",
     long_description = long_desc,
     long_description_content_type='text/markdown',
     author = 'Max Shinn',

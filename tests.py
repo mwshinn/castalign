@@ -758,5 +758,66 @@ class TestGraph(unittest.TestCase):
         
 
 
+class TestGPUAcceleration(unittest.TestCase):
+    def setUp(self):
+        try:
+            import cupy as cp  # noqa: F401
+        except Exception:
+            self.skipTest("CuPy is not available")
+        import castalign.base as base
+        if not base.GPU_AVAILABLE:
+            self.skipTest("GPU is not available for CuPy")
+        self.base = base
+        self.cp = cp
+
+    def test_transform_cupy_input_for_cpu_only_transform(self):
+        class CpuOnlyTransform(ca.Transform):
+            DEFAULT_PARAMETERS = {}
+
+            def _transform(self, points):
+                return points + 7
+
+            def invert(self):
+                return self
+
+        t = CpuOnlyTransform()
+        points = self.cp.asarray(np.random.randn(32, 3).astype(np.float32))
+        out = t.transform(points)
+
+        self.assertIsInstance(out, self.cp.ndarray)
+        np.testing.assert_allclose(self.cp.asnumpy(out), self.cp.asnumpy(points) + 7, atol=1e-5, rtol=1e-5)
+
+    def test_transform_empty_array_type_stability(self):
+        t = ca.TranslateParametric(z=1, y=2, x=3)
+
+        empty_np = np.empty((0, 3), dtype=np.float32)
+        out_np = t.transform(empty_np)
+        self.assertIsInstance(out_np, np.ndarray)
+        self.assertEqual(out_np.shape, (0, 3))
+
+        empty_cp = self.cp.empty((0, 3), dtype=self.cp.float32)
+        out_cp = t.transform(empty_cp)
+        self.assertIsInstance(out_cp, self.cp.ndarray)
+        self.assertEqual(out_cp.shape, (0, 3))
+
+    def test_transform_image_gpu_matches_cpu_for_affine(self):
+        t = ca.RigidParametric(z=1, y=-2, x=3, zrotate=2.0, yrotate=-1.0, xrotate=0.5)
+        img = np.random.RandomState(0).randn(9, 18, 15).astype(np.float32)
+
+        out_gpu = t.transform_image(img, output_size=img.shape, labels=False)
+
+        old_gpu_available = self.base.GPU_AVAILABLE
+        try:
+            self.base.GPU_AVAILABLE = False
+            out_cpu = t.transform_image(img, output_size=img.shape, labels=False)
+        finally:
+            self.base.GPU_AVAILABLE = old_gpu_available
+
+        np.testing.assert_allclose(np.asarray(out_gpu), np.asarray(out_cpu), atol=1e-4, rtol=1e-4)
+        origin_gpu = out_gpu.origin if hasattr(out_gpu, "origin") else np.asarray([0, 0, 0])
+        origin_cpu = out_cpu.origin if hasattr(out_cpu, "origin") else np.asarray([0, 0, 0])
+        np.testing.assert_allclose(origin_gpu, origin_cpu, atol=1e-6, rtol=1e-6)
+
+
 if __name__ == "__main__":
     unittest.main()

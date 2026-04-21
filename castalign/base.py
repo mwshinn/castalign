@@ -5,9 +5,36 @@ import scipy
 from .ndarray_shifted import ndarray_shifted
 from .utils import blit, image_is_label, invert_function_numerical, rotation_matrix
 import threadpoolctl
+try:
+    import cupy as cp
+    from cupyx.scipy import ndimage as cupyx_ndimage
+    try:
+        GPU_AVAILABLE = cp.cuda.runtime.getDeviceCount() > 0
+    except Exception:
+        GPU_AVAILABLE = False
+except Exception:
+    cp = None
+    cupyx_ndimage = None
+    GPU_AVAILABLE = False
 
 # TODO:
 # - implement posttransforms, allowing the unfitted transform to be on the left hand side
+
+
+def _gpu_chunksize(y_len, x_len, default_chunksize=4_000_000):
+    if not GPU_AVAILABLE:
+        return default_chunksize
+    try:
+        free_mem, _ = cp.cuda.runtime.memGetInfo()
+        # Rough budget for coords, mapped coords, and sampled output.
+        bytes_per_voxel = 28
+        budget = max(int(free_mem * 0.50), 1)
+        voxel_budget = max(budget // bytes_per_voxel, 1)
+        plane = max(y_len * x_len, 1)
+        z_per_chunk = max(voxel_budget // plane, 1)
+        return max(z_per_chunk * plane, 1)
+    except Exception:
+        return default_chunksize
 
 
 class Transform:
@@ -154,18 +181,22 @@ class Transform:
             Transformed coordinates, with the same single-point vs multi-point
             structure as the input.
         """
-        points = np.asarray(points)
+        in_cupy_format = GPU_AVAILABLE and isinstance(points, cp.ndarray)
+        use_cupy_internally = GPU_AVAILABLE and self._has_gpu_transform()
+        points = cp.asarray(points) if use_cupy_internally else (cp.asnumpy(points) if in_cupy_format else np.asarray(points))
         is_1d = False
         if points.ndim == 1:
             points = points[None]
             is_1d = True
         if 0 in points.shape: # If any dimensions don't exist, no points to transform
-            return points
+            return cp.asarray(points) if in_cupy_format else (cp.asnumpy(points) if use_cupy_internally else np.asarray(points))
         assert points.shape[1] == 3, "Input points must be in volume space"
-        if is_1d:
-            return self._transform(points)[0]
+        if use_cupy_internally:
+            out = self._transform_gpu(points)
         else:
-            return self._transform(points)
+            out = self._transform(points)
+        out = cp.asarray(out) if in_cupy_format else (cp.asnumpy(out) if use_cupy_internally else out)
+        return out[0] if is_1d else out
     def _transform(self, points):
         """Map points from source space to target space.
 
@@ -180,6 +211,24 @@ class Transform:
             Transformed points with shape ``(N, 3)``.
         """
         raise NotImplementedError("Please subclass and replace")
+    def _transform_gpu(self, points):
+        """GPU variant of :meth:`_transform` using CuPy arrays.
+
+        Subclasses can override this to enable GPU-accelerated point mapping.
+
+        Parameters
+        ----------
+        points : cupy.ndarray
+            Array with shape ``(N, 3)`` on GPU.
+
+        Returns
+        -------
+        cupy.ndarray
+            Transformed points with shape ``(N, 3)``.
+        """
+        raise NotImplementedError("GPU path not implemented for this transform")
+    def _has_gpu_transform(self):
+        return GPU_AVAILABLE and (self.__class__._transform_gpu is not Transform._transform_gpu)
     def inverse_transform(self, points):
         """Map points from target space back to source space.
 
@@ -395,6 +444,7 @@ class Transform:
         # from the destination image to the source image, and then use the
         # map_coordinates function to perform this mapping.
         output = np.zeros((len(zcoords),len(ycoords),len(xcoords)), dtype=(img.dtype if labels else "float32"))
+        use_gpu_image = GPU_AVAILABLE and self._has_gpu_transform()
         def _process_chunk(args):
             grid, chunk_shape, inds = args
             grid = grid + origin
@@ -404,6 +454,36 @@ class Transform:
             disp = mapped.reshape(*chunk_shape, 3).transpose(3, 0, 1, 2)
             block = scipy.ndimage.map_coordinates(img, disp, prefilter=False, order=(0 if labels else 1))
             return inds, block
+        if use_gpu_image:
+            try:
+                inverse_transform_gpu = self.invert()._transform_gpu
+                chunksize = _gpu_chunksize(len(ycoords), len(xcoords))
+                img_gpu = cp.asarray(img)
+                origin_gpu = cp.asarray(origin, dtype=cp.float32)
+                plane = max(len(ycoords) * len(xcoords), 1)
+                n_z_per_chunk = max(chunksize // plane, 1)
+                y_gpu = cp.asarray(ycoords, dtype=cp.float32)[None, :, None]
+                x_gpu = cp.asarray(xcoords, dtype=cp.float32)[None, None, :]
+                for zfrom in range(0, len(zcoords), n_z_per_chunk):
+                    zto = min(zfrom + n_z_per_chunk, len(zcoords))
+                    inds = (slice(zfrom, zto), slice(None), slice(None))
+                    chunk_shape = (zto - zfrom, len(ycoords), len(xcoords))
+                    z_gpu = cp.arange(zfrom, zto, dtype=cp.float32)[:, None, None]
+                    grid_gpu = cp.stack(
+                        [
+                            cp.broadcast_to(z_gpu, chunk_shape),
+                            cp.broadcast_to(y_gpu, chunk_shape),
+                            cp.broadcast_to(x_gpu, chunk_shape),
+                        ],
+                        axis=-1,
+                    ).reshape(-1, 3)
+                    mapped_gpu = inverse_transform_gpu(grid_gpu + origin_gpu)
+                    disp_gpu = mapped_gpu.reshape(*chunk_shape, 3).transpose(3, 0, 1, 2)
+                    block_gpu = cupyx_ndimage.map_coordinates(img_gpu, disp_gpu, prefilter=False, order=(0 if labels else 1))
+                    output[inds] = cp.asnumpy(block_gpu)
+                return ndarray_shifted(output, origin=origin, only_if_necessary=True)
+            except Exception:
+                pass
         with threadpoolctl.threadpool_limits(limits=1): # Parallelise here, so disable parallelisation on threads
             with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
                 for inds, block in pool.map(_process_chunk, chunker(zcoords, ycoords, xcoords, chunksize=4_000_000)):
@@ -515,6 +595,10 @@ class AffineTransform:
     """
     def _transform(self, points):
         return points @ self.matrix - self.shift
+    def _transform_gpu(self, points):
+        _matrix_gpu = cp.asarray(self.matrix, dtype=cp.float32)
+        _shift_gpu = cp.asarray(self.shift, dtype=cp.float32)
+        return points @ _matrix_gpu - _shift_gpu
     def transform_image(self, image, output_size=None, labels=None, force_size=True):
         # Optimisation for the case where no image transform needs to be
         # performed.
