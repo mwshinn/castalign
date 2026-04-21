@@ -847,7 +847,7 @@ class Graph:
         fn = filename
         if fn is None:
             fn = tempfile.mkstemp()[1]
-        g = graphviz.Digraph(self.name, filename=fn, engine="sfdp")
+        g = graphviz.Digraph(self.name, filename=fn, engine="sfdp", strict=True)
         g.attr(overlap="prism", sep="+12", K="1.2", repulsiveforce="1.2", splines="true", forcelabels="true") 
         g.attr('edge', fontsize='10')
         # Find all nodes that have an Identity edge and choose one as the 'base" node
@@ -871,7 +871,7 @@ class Graph:
                 if nearby is not None and e1 != nearby and e2 != nearby:
                     continue
                 if e1 in self.edges[e2].keys() and self.edges[e1][e2].__class__.__name__ == self.edges[e2][e1].__class__.__name__:
-                    if e1 > e2 and self.edges[e1][e2].__class__.__name__ != "Identity":
+                    if e1 > e2 and (self.edges[e1][e2].__class__.__name__ != "Identity" or ur_node[e1] != ur_node[e2]):
                         g.edge(ur_node[e1], ur_node[e2], label=self.edges[e1][e2].NAME, dir="both")
                         ur_nodes_used.add(ur_node[e1])
                         ur_nodes_used.add(ur_node[e2])
