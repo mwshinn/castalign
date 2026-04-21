@@ -1,6 +1,6 @@
 from . import base as transform
 import numpy as np
-from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings
+from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings, get_legacy_eval_namespace
 from . import ndarray_shifted as ndarray_shifted
 from . import utils
 import os
@@ -329,9 +329,16 @@ class Graph:
             except Exception:
                 version = 1
             edges_text = props['edges']
+            if version < CURRENT_FILE_FORMAT_VERSION:
+                print(
+                    f"Loading legacy graph format version {version}. "
+                    f"It will be saved as version {CURRENT_FILE_FORMAT_VERSION} when you save it."
+                )
             if version == 1:
                 edges_text = apply_legacy_class_remappings(edges_text)
-            g.edges = eval(edges_text, transform.__dict__, transform.__dict__)
+            eval_namespace = dict(transform.__dict__)
+            eval_namespace.update(get_legacy_eval_namespace(eval_namespace))
+            g.edges = eval(edges_text, eval_namespace, eval_namespace)
             g.metadata = eval(props.get('metadata', 'None'))
             g.node_metadata = eval(props.get('node_metadata', '{}'))
 
@@ -365,13 +372,18 @@ class Graph:
             Loaded graph. ``filename`` is rewritten to the matching ``.db``
             path for subsequent saves.
         """
-        print(f"Loading legacy NPZ file: {filename}. It will be converted to the new SQLite format.")
+        print(
+            f"Loading legacy NPZ file: {filename}. "
+            f"It will be converted to graph format version {CURRENT_FILE_FORMAT_VERSION} when you save it."
+        )
         f = np.load(filename, allow_pickle=True)
         g = cls(str(f['name']))
 
         g.nodes = list(map(str, f['nodes']))
         edges_text = apply_legacy_class_remappings(str(f['edges']))
-        g.edges = eval(edges_text, transform.__dict__, transform.__dict__)
+        eval_namespace = dict(transform.__dict__)
+        eval_namespace.update(get_legacy_eval_namespace(eval_namespace))
+        g.edges = eval(edges_text, eval_namespace, eval_namespace)
         if "metadata" in f.keys():
             g.metadata = eval(str(f['metadata']))
         if "notes" in f.keys():
@@ -886,13 +898,16 @@ class Graph:
             os.unlink(fn)
 
 # We put this file here to avoid circular imports
-def load(fn):
+def load(fn, version=None):
     """Load a Graph or Transform from file.
 
     Parameters
     ----------
     fn : str or path-like
         Input file path.
+    version : int or None, optional
+        Transform file format version, used only when ``fn`` is a transform
+        text file.
 
     Returns
     -------
@@ -909,7 +924,7 @@ def load(fn):
     except sqlite3.DatabaseError:
         pass
     try:
-        return transform.Transform.load(fn)
+        return transform.Transform.load(fn, version=version)
     except:
         raise IOError("Invalid file type, can only load Transforms or Graphs.")
 

@@ -84,23 +84,7 @@ Point-based transforms
 Deprecated transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. autoclass:: castalign.base.TranslateRotate2D
-   :show-inheritance:
-   :no-members:
-
 .. autoclass:: castalign.base.Flip
-   :show-inheritance:
-   :no-members:
-
-.. autoclass:: castalign.base.TranslateRotateRescaleParametric
-   :show-inheritance:
-   :no-members:
-
-.. autoclass:: castalign.base.TranslateRotateRescale2DParametric
-   :show-inheritance:
-   :no-members:
-
-.. autoclass:: castalign.base.ShearParametric
    :show-inheritance:
    :no-members:
 

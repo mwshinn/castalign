@@ -355,10 +355,10 @@ is by returning the transform as the return value of the "<a href="api_gui.html#
 function.  In this way, if can be incorporated into Python scripts.
 
 Second, the transform can be saved directly by using the "Save transform"
-button.  This will open a dialog box to save (equivalent to <a href="api_transforms.html#castalign.base.Transform.save"><code>Transform.save()</code></a>).  Then, it can be loaded with <a href="api_graphs.html#castalign.graph.load"><code>castalign.load()</code></a>:
+button.  This will open a dialog box to save (equivalent to <a href="api_transforms.html#castalign.base.Transform.save"><code>Transform.save()</code></a>).  Then, it can be loaded with <a href="api_transforms.html#castalign.base.Transform.load"><code>Transform.load()</code></a>:
 
 ```python
-t = ca.load("/path/to/transform.tf")
+t = ca.Transform.load("/path/to/transform.tf")
 ```
 
 The third is by saving to a <a href="api_graphs.html#castalign.graph.Graph">graph</a>, which we will discuss in the next section....

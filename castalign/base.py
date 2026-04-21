@@ -1,5 +1,5 @@
 import os
-from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings
+from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings, get_legacy_eval_namespace
 import concurrent.futures
 import numpy as np
 import scipy
@@ -148,13 +148,17 @@ class Transform:
         with open(filename, "w") as f:
             f.write(repr(self))
     @staticmethod
-    def load(filename):
+    def load(filename, version=None):
         """Load a transform from a file written by :meth:`save`.
 
         Parameters
         ----------
         filename : str or path-like
             Input file path containing a transform repr string.
+        version : int or None, optional
+            File format version for this transform text. If ``None``, uses the
+            current format version. Set to ``1`` for older files that may use
+            legacy class names.
 
         Returns
         -------
@@ -163,7 +167,17 @@ class Transform:
         """
         with open(filename, "r") as f:
             text = f.read()
-        return eval(text, globals(), None)
+        if version is None:
+            version = CURRENT_FILE_FORMAT_VERSION
+        eval_namespace = dict(globals())
+        if version < CURRENT_FILE_FORMAT_VERSION:
+            print(
+                f"Loading legacy transform format version {version}. "
+                f"It will be saved as version {CURRENT_FILE_FORMAT_VERSION} when you save it."
+            )
+            text = apply_legacy_class_remappings(text)
+            eval_namespace.update(get_legacy_eval_namespace(eval_namespace))
+        return eval(text, eval_namespace, None)
     def transform(self, points):
         """Transform 3D point coordinates from source space to target space.
 
@@ -698,6 +712,32 @@ class Identity(AffineTransform,Transform):
             return super().transform_image(image, output_size=output_size, labels=labels, force_size=force_size)
         return image
 
+class Translate(AffineTransform,PointTransform):
+    """Translation-only transform fit from corresponding points."""
+    NAME = "Translate"
+    SORT_WEIGHT = -100
+    def _fit(self):
+        self.matrix = np.eye(3)
+        self.shift = np.mean(self.points_start - self.points_end, axis=0)
+
+class TranslateParametric(AffineTransform,Transform):
+    """Translation-only transform with fixed z/y/x offsets.
+
+    Parameters
+    ----------
+    z, y, x : float, optional
+        Translation offsets in voxel coordinates.
+    """
+    NAME = "Translate"
+    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0}
+    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
+    def _fit(self):
+        self.matrix = np.eye(3)
+        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
+    def invert(self):
+        return self.__class__(x=-self.params["x"], y=-self.params["y"], z=-self.params["z"])
+
+
 class Rigid(AffineTransform,PointTransform):
     """Rigid transform fit from points using rotation and translation."""
     NAME = "Rigid"
@@ -1196,25 +1236,6 @@ def compose_transforms(a, b):
 
 
 
-class TranslateRotate2D(AffineTransform,PointTransform): # Deprecated
-    """Deprecated 2D translation-and-rotation transform."""
-    NAME = "Translate and rotate in 2D only"
-    def _fit(self):
-        demeaned_start = self.points_start - np.mean(self.points_start, axis=0)
-        demeaned_end = self.points_end - np.mean(self.points_end, axis=0)
-        U,S,V = np.linalg.svd(demeaned_start[:,1:3].T @ demeaned_end[:,1:3])
-        corner_matrix = U@V
-        self.matrix = np.vstack([[[1, 0, 0]], np.hstack([[[0],[0]], corner_matrix])])
-        self.shift = np.mean(self.points_start @ self.matrix - self.points_end, axis=0)
-
-class Translate(AffineTransform,PointTransform):
-    """Translation-only transform fit from corresponding points."""
-    NAME = "Translate"
-    SORT_WEIGHT = -100
-    def _fit(self):
-        self.matrix = np.eye(3)
-        self.shift = np.mean(self.points_start - self.points_end, axis=0)
-
 class Flip(AffineTransform,Transform): # Deprecated
     """Deprecated parametric axis-flip transform."""
     NAME = "Flip"
@@ -1225,95 +1246,6 @@ class Flip(AffineTransform,Transform): # Deprecated
         self.shift = np.asarray([max(0, self.params[c+"thickness"]-1)*int(self.params[c]) for c in ["z", "y", "x"]])
     def invert(self):
         return self
-
-class TranslateParametric(AffineTransform,Transform):
-    """Translation-only transform with fixed z/y/x offsets.
-
-    Parameters
-    ----------
-    z, y, x : float, optional
-        Translation offsets in voxel coordinates.
-    """
-    NAME = "Translate"
-    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0}
-    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
-    def _fit(self):
-        self.matrix = np.eye(3)
-        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
-    def invert(self):
-        return self.__class__(x=-self.params["x"], y=-self.params["y"], z=-self.params["z"])
-
-class TranslateRotateRescaleParametric(AffineTransform,Transform): # Deprecated
-    """Deprecated parametric translation-rotation-scale transform.
-
-    Parameters
-    ----------
-    z, y, x : float, optional
-        Translation offsets in voxel coordinates.
-    zrotate, yrotate, xrotate : float, optional
-        Clockwise rotation angles (degrees) about each axis.
-    zscale, yscale, xscale : float, optional
-        Axis-wise scale factors.
-    invert : bool, optional
-        If ``True``, inverts the composed transform.
-    """
-    NAME = "Translate, rotate, and rescale"
-    #SHORTCUT_KEY = "r"
-    SORT_WEIGHT = -98
-    DEFAULT_PARAMETERS = {"z": 0.0, "y": 0.0, "x": 0.0, "zrotate": 0.0, "yrotate": 0.0, "xrotate": 0.0, "zscale": 1.0, "yscale": 1.0, "xscale": 1.0, "invert": False}
-    GUI_DRAG_PARAMETERS = ["z", "y", "x"]
-    def _fit(self):
-        self.matrix = rotation_matrix(self.params["zrotate"], self.params["yrotate"], self.params["xrotate"]) @ np.asarray([[self.params["zscale"], 0, 0], [0, self.params["yscale"], 0], [0, 0, self.params["xscale"]]])
-        if self.params['invert']:
-            self.matrix = np.linalg.inv(self.matrix)
-        self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
-    def invert(self):
-        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ np.linalg.inv(self.matrix)
-        return self.__class__(zrotate=self.params["zrotate"], yrotate=self.params["yrotate"], xrotate=self.params["xrotate"], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2], zscale=self.params["zscale"], yscale=self.params["yscale"], xscale=self.params["xscale"], invert=(not self.params['invert']))
-
-class TranslateRotateRescale2DParametric(AffineTransform,Transform): # Deprecated
-    """Deprecated 2D parametric translation-rotation-scale transform.
-
-    Parameters
-    ----------
-    y, x : float, optional
-        In-plane translation offsets.
-    rotate : float, optional
-        Clockwise in-plane rotation angle (degrees).
-    scale : float, optional
-        In-plane isotropic scale factor.
-    """
-    DEFAULT_PARAMETERS = {"y": 0.0, "x": 0.0, "rotate": 0.0, "scale": 1.0}
-    GUI_DRAG_PARAMETERS = [None, "y", "x"]
-    def _fit(self):
-        self.matrix = rotation_matrix(self.params["rotate"], 0, 0) @ np.asarray([[1, 0, 0], [0, self.params["scale"], 0], [0, 0, self.params["scale"]]])
-        self.shift = np.asarray([0, -self.params["y"], -self.params["x"]])
-    def invert(self):
-        newzyx = [0, self.params["y"], self.params["x"]] @ self.matrix.T
-        return self.__class__(rotate=-self.params["rotate"], y=-newzyx[1], x=-newzyx[2], scale=1/self.params["scale"])
-
-class ShearParametric(AffineTransform,Transform): # Deprecated
-    """Deprecated parametric shear transform with optional shifts.
-
-    Parameters
-    ----------
-    yzshear, xzshear, xyshear : float, optional
-        Shear coefficients.
-    zshift, yshift, xshift : float, optional
-        Translation offsets applied with shear.
-    """
-    NAME = "Shear"
-    DEFAULT_PARAMETERS = {"yzshear": 0, "xzshear": 0, "xyshear": 0, "zshift": 0, "yshift": 0, "xshift": 0}
-    # SHORTCUT_KEY = "z"
-    GUI_DRAG_PARAMETERS = ["zshift", "yshift", "xshift"]
-    SORT_WEIGHT = -95
-    def _fit(self):
-        self.shift = np.zeros(3)
-        self.shift = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]])
-        self.matrix = np.asarray([[1, 0, 0], [self.params["yzshear"], 1, 0], [self.params["xzshear"], self.params["xyshear"], 1]])
-    def invert(self):
-        s = np.asarray([-self.params["zshift"], -self.params["yshift"], -self.params["xshift"]]) @ np.asarray([[1, 0, 0], [-self.params["yzshear"], 1, 0], [self.params["yzshear"]*self.params["xyshear"]-self.params["xzshear"], -self.params["xyshear"], 1]])
-        return self.__class__(yzshear=-self.params["yzshear"], xzshear=self.params["xyshear"]*self.params["yzshear"]-self.params["xzshear"], xyshear=-self.params["xyshear"], zshift=s[0], yshift=s[1], xshift=s[2])
 
 # This doesn't work very well
 class DistanceWeightedAverageGaussian(PointTransformNoAnalyticInverse): # Deprecated
@@ -1332,6 +1264,3 @@ class DistanceWeightedAverageGaussian(PointTransformNoAnalyticInverse): # Deprec
         pos += np.mean(points_end-points_start, axis=0, keepdims=True)*epsilon
         pos /= (baseline[:,None] + epsilon)
         return points + pos
-
-Shear = ShearParametric
-TranslateRotateRescale = Affine # Old name, technically incorrect
