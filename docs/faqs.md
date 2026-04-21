@@ -10,7 +10,7 @@ compute power to perform the transform for each voxel.
 
 However, we can make this faster by reducing how much data is rendered during
 alignment without changing the final transform output. Use the `crop` argument
-in `alignment_gui(..., crop=...)` or `align_interactive(..., crop=...)`.
+in <a href="api_gui.html#castalign.gui.alignment_gui"><code>alignment_gui(..., crop=...)</code></a> or <a href="api_gui.html#castalign.gui.align_interactive"><code>align_interactive(..., crop=...)</code></a>.
 
 For example,
 
@@ -37,7 +37,7 @@ t_full = s + t_ds + s.invert()
 Here `t_full` is the transform to apply to the original full-resolution images.
 
 Another reason why CASTalign may be slow is if you are using a **non-linear
-triangulation with many control points**.  This can only be fixed by reducing
+triangulation with many control points** (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a> / <a href="api_transforms.html#castalign.base.PlaneConstrainedTriangulation"><code>PlaneConstrainedTriangulation</code></a>).  This can only be fixed by reducing
 the number of control points.
 
 A final reason why CASTalign may be slower than expected is if

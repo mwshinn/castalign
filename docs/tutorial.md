@@ -219,8 +219,8 @@ This library contains a GUI based on Napari that can be used to fit transforms
 by hand, seeing the changes interactively as the Transform is edited.  There are
 two primary interactive functionalities of the GUI:
 
-- Adjusting Transform parameters
-- Selecting points for point-based transforms
+- Adjusting <a href="api_transforms.html#castalign.base.Transform">Transform</a> parameters
+- Selecting points for <a href="api_transforms.html#castalign.base.PointTransform">point-based transforms</a>
 
 There are two ways to access the GUI.  The first, using the function
 <a href="api_gui.html#castalign.gui.alignment_gui"><code>alignment_gui()</code></a>, allows you to create or edit a single Transform.  If you
@@ -260,14 +260,14 @@ The GUI will look like this:
 
 ![align_interactive() GUI](_static/screenshots/align_interactive.png)
 
-On the top row, we can see see the current transform, which is just Identity()
+On the top row, we can see see the current transform, which is just <a href="api_transforms.html#castalign.base.Identity"><code>Identity()</code></a>
 for now (i.e., no transform).  The next section shows parametric transforms,
 followed by point-based transforms, other tools, and then two options to modify
 poinst-based transforms.
 
 ### Parametric transforms
 
-Let's start with a parametric transform.  "Rigid" (RigidParametric) is usually a
+Let's start with a parametric transform.  "Rigid" (<a href="api_transforms.html#castalign.base.RigidParametric"><code>RigidParametric</code></a>) is usually a
 good place to start.  Click the "Rigid" button under the "Parametric Transforms"
 section.
 
@@ -295,7 +295,7 @@ the corner.
 ### Point-based transforms
 
 The GUI window to select a transform should appear again.  This time, select
-"Rigid" under the "Point-based Transforms" section.
+"Rigid" (<a href="api_transforms.html#castalign.base.Rigid"><code>Rigid</code></a>) under the "Point-based Transforms" section.
 
 ![alignment_gui() points GUI](_static/screenshots/alignment_gui_points.png)
 
@@ -351,17 +351,17 @@ transform.
 ### Saving transforms
 
 There are three ways that the GUI makes transform chains available.  The first
-is by returning the transform as the return value of the "align_interactive"
+is by returning the transform as the return value of the "<a href="api_gui.html#castalign.gui.align_interactive"><code>align_interactive()</code></a>"
 function.  In this way, if can be incorporated into Python scripts.
 
 Second, the transform can be saved directly by using the "Save transform"
-button.  This will open a dialog box to save.  Then, it can be loaded with:
+button.  This will open a dialog box to save (equivalent to <a href="api_transforms.html#castalign.base.Transform.save"><code>Transform.save()</code></a>).  Then, it can be loaded with <a href="api_graphs.html#castalign.graph.load"><code>castalign.load()</code></a>:
 
 ```python
-t = pixease.load("/path/to/transform.tf")
+t = ca.load("/path/to/transform.tf")
 ```
 
-The third is by saving to a graph, which we will discuss in the next section....
+The third is by saving to a <a href="api_graphs.html#castalign.graph.Graph">graph</a>, which we will discuss in the next section....
 
 ## <a href="api_graphs.html">Graphs</a>
 
@@ -400,7 +400,7 @@ del g["img1":"img2"]            # Same as g.remove_edge("img1", "img2")
 ### Example workflow with three images
 
 Suppose from the previous section you already have ``fixed``, ``movable``, and
-a transform ``t`` returned by ``align_interactive(movable, fixed)``.
+a transform ``t`` returned by <a href="api_gui.html#castalign.gui.align_interactive"><code>align_interactive(movable, fixed)</code></a>.
 
 ```python
 img3 = img2[:,10:,:-15] # Simple translation of img2
@@ -414,7 +414,7 @@ g["img3"] = img3
 g["img1":"img2"] = t
 ```
 
-Now align ``img2`` to ``img3`` in the interactive GUI:
+Now align ``img2`` to ``img3`` in the interactive GUI with <a href="api_gui.html#castalign.gui.align_interactive"><code>align_interactive()</code></a>:
 
 ```python
 t_img23 = castalign.gui.align_interactive("img2", "img3", graph=g)
@@ -442,7 +442,7 @@ img1_like_img3 = t_img13(img1, output_size=img3.shape)
 
 In this case, there is only one path, but in the more general case, CASTalign
 will find the shortest path between the two nodes and compose the necessary
-transforms to map from one space to the other.
+transforms to map from one space to the other (using <a href="api_graphs.html#castalign.graph.Graph.get_transform"><code>g.get_transform(...)</code></a> under the hood).
 
 ### Viewing all images in one coordinate system
 
