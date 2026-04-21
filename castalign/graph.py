@@ -87,8 +87,10 @@ class Graph:
 
         Examples
         --------
-        >>> g["session1"] # Returns the image
-        >>> g["session1":"session2"] # Return a transform from session1 to session2
+        ::
+
+            >>> g["session1"] # Returns the image
+            >>> g["session1":"session2"] # Return a transform from session1 to session2
         """
         if isinstance(item, str) and item in self.nodes:
             return self.get_image(item)
@@ -111,8 +113,10 @@ class Graph:
 
         Examples
         --------
-        >>> g["session2"] = vol # Creates a new node with image data vol
-        >>> g["session1":"session2"] = tform # Creates an edge from "session1" to "session2"
+        ::
+
+            >>> g["session2"] = vol # Creates a new node with image data vol
+            >>> g["session1":"session2"] = tform # Creates an edge from "session1" to "session2"
         """
         if isinstance(name, str):
             return self.add_node(name, image=value)
@@ -134,8 +138,10 @@ class Graph:
 
         Examples
         --------
-        >>> del g["session1"] # Remove the node session1
-        >>> del g["session1":"session2"] # Remove the edge from session1 to session2
+        ::
+
+            >>> del g["session1"] # Remove the node session1
+            >>> del g["session1":"session2"] # Remove the edge from session1 to session2
         """
         if isinstance(name, str):
             return self.remove_node(name)
@@ -157,8 +163,10 @@ class Graph:
 
         Examples
         --------
-        >>> "session1" in g # Returns True if "session1" is a node in the graph
-        >>> ("session1", "session2") in g # Returns True if "session1" and "session2" are directly connected by an edge
+        ::
+
+            >>> "session1" in g # Returns True if "session1" is a node in the graph
+            >>> ("session1", "session2") in g # Returns True if "session1" and "session2" are directly connected by an edge
         """
         if isinstance(item, str):
             return item in self.nodes
@@ -443,9 +451,11 @@ class Graph:
 
         Examples
         --------
-        >>> g.add_node("session1", image=session1_vol)
-        >>> g.add_node("session1_1umvoxels", image="session1")
-        >>> g.add_edge("session1", "session1_1umvoxels", RescaleParametric(z=1, x=.3, y=.3))
+        ::
+
+            >>> g.add_node("session1", image=session1_vol)
+            >>> g.add_node("session1_1umvoxels", image="session1")
+            >>> g.add_edge("session1", "session1_1umvoxels", RescaleParametric(z=1, x=.3, y=.3))
 
         """
         # Image can either be a 3-dimensional ndarray or a string of another node
@@ -916,8 +926,10 @@ def load(fn, version=None):
 
     Examples
     --------
-    >>> g = load("my_graph.db") # Loads a graph
-    >>> t = load("my_transform.txt") # Loads a transform
+    ::
+
+        >>> g = load("my_graph.db") # Loads a graph
+        >>> t = load("my_transform.txt") # Loads a transform
     """
     try:
         return Graph.load(fn)

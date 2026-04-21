@@ -23,23 +23,23 @@ class ndarray_shifted(np.ndarray):
 
     Examples
     --------
-    Create a shifted 3D array:
+    Create a shifted 3D array::
 
-    >>> arr = ndarray_shifted(np.zeros((4, 5, 6)), origin=[10, 20, 30])
-    >>> isinstance(arr, ndarray_shifted)
-    True
-    >>> isinstance(arr, np.ndarray)
-    True
-    >>> arr.origin.tolist()
-    [10, 20, 30]
+        >>> arr = ndarray_shifted(np.zeros((4, 5, 6)), origin=[10, 20, 30])
+        >>> isinstance(arr, ndarray_shifted)
+        True
+        >>> isinstance(arr, np.ndarray)
+        True
+        >>> arr.origin.tolist()
+        [10, 20, 30]
 
-    Keep a plain ndarray when no shift is needed:
+    Keep a plain ndarray when no shift is needed::
 
-    >>> out = ndarray_shifted(np.zeros((3, 3, 3)), origin=[0, 0, 0], only_if_necessary=True)
-    >>> isinstance(out, np.ndarray)
-    True
-    >>> isinstance(out, ndarray_shifted)
-    False
+        >>> out = ndarray_shifted(np.zeros((3, 3, 3)), origin=[0, 0, 0], only_if_necessary=True)
+        >>> isinstance(out, np.ndarray)
+        True
+        >>> isinstance(out, ndarray_shifted)
+        False
     """
     def __new__(cls, a, origin=[0,0,0], only_if_necessary=False):
         if isinstance(a, cls):

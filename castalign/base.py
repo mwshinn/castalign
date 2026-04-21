@@ -47,13 +47,13 @@ class Transform:
 
     Conceptually, transforms in CASTalign are usually either:
 
-    - point-based (see ``PointTransform``), or
-    - parameterized transforms that do not use correspondence points.
+    * point-based (see ``PointTransform``), or
+    * parameterized transforms that do not use correspondence points.
 
     ``DEFAULT_PARAMETERS`` serves two purposes:
 
-    - it provides default values, and
-    - it defines the complete set of constructor keyword parameters accepted by
+    * it provides default values, and
+    * it defines the complete set of constructor keyword parameters accepted by
       that transform class.
 
     Parameter values are stored in ``self.params`` and can be edited in the
@@ -64,13 +64,11 @@ class Transform:
     -----
     To implement a new subclass:
 
-    - Implement ``_transform(points)`` for forward mapping.
-    - Implement ``invert()`` for reverse mapping.
-    - Implement ``_fit()`` if parameters must be derived from point data.
-
+    * Implement ``_transform(points)`` for forward mapping.
+    * Implement ``invert()`` for reverse mapping.
+    * Implement ``_fit()`` if parameters must be derived from point data.
       ``_fit()`` is called during initialization when present.
-    - If there is no analytic inverse, subclass
-
+    * If there is no analytic inverse, subclass
       ``PointTransformNoAnalyticInverse``.
 
     Any transform must be exactly reconstructible from ``__repr__`` output.
@@ -117,8 +115,9 @@ class Transform:
         ----------
         data : array-like
             Either:
-            - 3D point coordinates in ``(z, y, x)`` form (``(3,)`` or ``(N, 3)``), or
-            - image-like array data.
+
+            * 3D point coordinates in ``(z, y, x)`` form (``(3,)`` or ``(N, 3)``), or
+            * image-like array data.
         *args, **kwargs
             Forwarded to ``transform`` or ``transform_image`` depending on
             input type.
@@ -291,10 +290,12 @@ class Transform:
         img : numpy.ndarray or ndarray_shifted
             Input 3D image.
         output_size : None, sequence, or sequence of 2-tuples, optional
-            Output bounds:
-            - ``None``: tight bounds from transformed corners.
-            - ``(z, y, x)``: explicit upper bounds from origin 0.
-            - ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``: explicit bounds.
+            Output bounds.
+
+            * ``None``: tight bounds from transformed corners.
+            * ``(z, y, x)``: explicit upper bounds from origin 0.
+            * ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``: explicit bounds.
+
             ``None`` values inside explicit bounds are treated as open bounds.
         force_size : bool, optional
             If ``True``, use explicit bounds exactly. If ``False``, treat them
@@ -307,18 +308,18 @@ class Transform:
 
         Examples
         --------
-        Use automatic tight bounds:
-        >>> origin, maxpos = t.origin_and_maxpos(img)
+        ::
 
-        Force a specific output size from origin 0:
-        >>> origin, maxpos = t.origin_and_maxpos(img, output_size=(80, 256, 256))
-
-        Force explicit coordinate bounds:
-        >>> origin, maxpos = t.origin_and_maxpos(
-        ...     img,
-        ...     output_size=((10, 90), (20, 220), (30, 230)),
-        ...     force_size=True,
-        ... )
+            >>> # Use automatic tight bounds.
+            >>> origin, maxpos = t.origin_and_maxpos(img)
+            >>> # Force a specific output size from origin 0.
+            >>> origin, maxpos = t.origin_and_maxpos(img, output_size=(80, 256, 256))
+            >>> # Force explicit coordinate bounds.
+            >>> origin, maxpos = t.origin_and_maxpos(
+            ...     img,
+            ...     output_size=((10, 90), (20, 220), (30, 230)),
+            ...     force_size=True,
+            ... )
         """
         input_bounds = img.shape
         origin_offset = img.origin if isinstance(img, ndarray_shifted) else [0,0,0]
@@ -363,10 +364,11 @@ class Transform:
         output_size : None, sequence, or sequence of 2-tuples, optional
             Output bounds, same formats as ``origin_and_maxpos``.
         labels : bool or None, optional
-            Label mode:
-            - ``True``: nearest-neighbor interpolation.
-            - ``False``: linear interpolation.
-            - ``None``: auto-detect with ``image_is_label``.
+            Label mode.
+
+            * ``True``: nearest-neighbor interpolation.
+            * ``False``: linear interpolation.
+            * ``None``: auto-detect with ``image_is_label``.
         force_size : bool, optional
             If ``False``, output size may be smaller than ``output_size``
             if the output would include empty space
@@ -383,17 +385,17 @@ class Transform:
 
         Examples
         --------
-        Transform with automatic tight output bounds:
-        >>> out = t.transform_image(img)
+        ::
 
-        Transform a label volume with nearest-neighbor interpolation:
-        >>> out = t.transform_image(labels_img, labels=True)
-
-        Transform with explicit output bounds:
-        >>> out = t.transform_image(
-        ...     img,
-        ...     output_size=((10, 90), (20, 220), (30, 230)),
-        ... )
+            >>> # Transform with automatic tight output bounds.
+            >>> out = t.transform_image(img)
+            >>> # Transform a label volume with nearest-neighbor interpolation.
+            >>> out = t.transform_image(labels_img, labels=True)
+            >>> # Transform with explicit output bounds.
+            >>> out = t.transform_image(
+            ...     img,
+            ...     output_size=((10, 90), (20, 220), (30, 230)),
+            ... )
         """
         # First, if we have an ndarray_shifted object, shift it first with another transform.
         if isinstance(img, ndarray_shifted) and np.any(img.origin != np.asarray([0,0,0])):
@@ -531,13 +533,15 @@ class PointTransform(Transform):
     Notes
     -----
     Subclasses can rely on:
-    - ``self.points_start``: source coordinates.
-    - ``self.points_end``: target coordinates.
+
+    * ``self.points_start``: source coordinates.
+    * ``self.points_end``: target coordinates.
 
     Subclasses are expected to implement the standard transform behavior:
-    - forward mapping through ``_transform``,
-    - inverse mapping through ``invert``,
-    - and optional fitting logic in ``_fit``.
+
+    * forward mapping through ``_transform``,
+    * inverse mapping through ``invert``,
+    * and optional fitting logic in ``_fit``.
     """
     def __init__(self, points_start=None, points_end=None, **kwargs):
         """Initialize a point-based transform from matched coordinates.
@@ -602,8 +606,9 @@ class AffineTransform:
     Notes
     -----
     Subclasses should use ``_fit`` to set:
-    - ``self.matrix`` with shape ``(3, 3)``
-    - ``self.shift`` with shape ``(3,)``
+
+    * ``self.matrix`` with shape ``(3, 3)``
+    * ``self.shift`` with shape ``(3,)``
 
     This mixin is designed for multiple inheritance with ``Transform`` or
     ``PointTransform``-derived classes.
@@ -644,8 +649,9 @@ class PointTransformNoAnalyticInverse(PointTransform):
     Notes
     -----
     Subclasses should:
-    - include ``{"invert": False}`` in ``DEFAULT_PARAMETERS``
-    - implement ``_transform(points, points_start, points_end)``
+
+    * include ``{"invert": False}`` in ``DEFAULT_PARAMETERS``
+    * implement ``_transform(points, points_start, points_end)``
 
     By default, this class treats ``_transform`` as the inverse-direction map,
     which is typically the faster direction for image resampling workflows.
@@ -1145,9 +1151,10 @@ def compose_transforms(a, b):
     -------
     Transform or type
         Depending on inputs:
-        - If both are instances, returns an instantiated composed transform.
-        - If ``b`` is a class, returns a composed transform class.
-        - Identity components are simplified away when possible.
+
+        * If both are instances, returns an instantiated composed transform.
+        * If ``b`` is a class, returns a composed transform class.
+        * Identity components are simplified away when possible.
 
     Notes
     -----

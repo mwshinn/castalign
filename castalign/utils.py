@@ -301,8 +301,9 @@ def _image_compression_transform(img, transform_id):
         3D volume data.
     transform_id : int
         Internal transform code:
-        - ``0``: no transform
-        - ``1``: ``log(10 + max(img, 0))``
+
+        * ``0``: no transform
+        * ``1``: ``log(10 + max(img, 0))``
 
     Returns
     -------
@@ -330,8 +331,9 @@ def _image_decompression_transform(img, transform_id):
         Decoded 3D volume in transformed intensity space.
     transform_id : int
         Internal transform code:
-        - ``0``: no transform
-        - ``1``: ``exp(img) - 10``
+
+        * ``0``: no transform
+        * ``1``: ``exp(img) - 10``
 
     Returns
     -------

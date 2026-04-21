@@ -19,9 +19,11 @@ class GraphViewer(napari.Viewer):
 
     Examples
     --------
-    >>> gv = GraphViewer(graph=g, space="session1")
-    >>> gv.add_image("session1") # Display image for session1 directly
-    >>> gv.add_image("session2") # Transform to session1 space and then display
+    ::
+
+        >>> gv = GraphViewer(graph=g, space="session1")
+        >>> gv.add_image("session1") # Display image for session1 directly
+        >>> gv.add_image("session2") # Transform to session1 space and then display
     """
 
     def __init__(self, graph, space=None, *args, **kwargs):
@@ -140,11 +142,11 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
 
     The base image(s) and movable image(s( can be any of the following:
 
-    - 2D or 3D arrays (2D arrays will be interpreted as (1, Y, X) 3D arrays)
-    - The name of a node on the graph (given by the ``graph`` argument)
-    - Multichannel images, specified as a tuple, with with each channel as an
+    * 2D or 3D arrays (2D arrays will be interpreted as (1, Y, X) 3D arrays)
+    * The name of a node on the graph (given by the ``graph`` argument)
+    * Multichannel images, specified as a tuple, with with each channel as an
       element of the tuple
-    - Multichannel images from the graph, specified as a tuple of node names.
+    * Multichannel images from the graph, specified as a tuple of node names.
       They will all be transformed to the space of the first element of the
       tuple.
 
@@ -155,13 +157,13 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
     transformed to the base image's coordinate system and can be easily toggled
     on and off.  They can be any of the following:
 
-    - A list of 2D or 3D arrays (2D arrays will be interpreted as (1, Y, X) 3D
+    * A list of 2D or 3D arrays (2D arrays will be interpreted as (1, Y, X) 3D
       arrays)
-    - A list of tuples of length 2, where the first element is a 2D or 3D array
+    * A list of tuples of length 2, where the first element is a 2D or 3D array
       and the second element is a transform.  The arrays will be transformed
       according to the transform before being displayed.  (I.e., the transform
       puts the array into the base coordinate system.)
-    - A list of node names in the graph.
+    * A list of node names in the graph.
 
     As some images can be large, the "crop" argument allows displaying a smaller
     region to increase speed and save memory.  The resulting transform will be
@@ -177,32 +179,36 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
     ----------
     movable_image : ndarray, str, tuple, or list
         Movable image input. Accepted forms:
-        - 2D or 3D ndarray (2D is treated as ``(1, Y, X)`` where needed)
-        - tuple/list of ndarrays for multichannel display
-        - node name (str), or tuple/list of node names, when ``graph`` is provided
+
+        * 2D or 3D ndarray (2D is treated as ``(1, Y, X)`` where needed)
+        * tuple/list of ndarrays for multichannel display
+        * node name (str), or tuple/list of node names, when ``graph`` is provided
     base_image : ndarray, str, tuple, or list
         Base/fixed image input. Accepted forms are the same as
         ``movable_image``.
     transform : Transform subclass, Transform instance, or None, optional
         Starting transform for alignment:
-        - Transform subclass: start from default parameters for that transform
-        - Transform instance: continue editing an existing transform
-        - ``None``: use graph transform (if available), else ``Identity()``
+
+        * Transform subclass: start from default parameters for that transform
+        * Transform instance: continue editing an existing transform
+        * ``None``: use graph transform (if available), else ``Identity()``
     graph : castalign.graph.Graph or None, optional
         Graph context used for node-name image lookup and transform chaining.
         Required when passing node names in ``base_image``, ``movable_image``,
         or ``references``.
     references : list, optional
         Additional landmark overlays. Accepted forms:
-        - list of 2D/3D ndarrays (2D treated as ``(1, Y, X)`` where needed)
-        - list of ``(image, transform)`` tuples
-        - list of node names when ``graph`` is provided
+
+        * list of 2D/3D ndarrays (2D treated as ``(1, Y, X)`` where needed)
+        * list of ``(image, transform)`` tuples
+        * list of node names when ``graph`` is provided
     crop : bool or tuple, optional
         Display crop for transformed movable image:
-        - ``False``: do not crop
-        - ``True``: crop to the boundaries of the first base image
-        - ``(zmax, ymax, xmax)``: crop from from 0 to these coordinates
-        - ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``: crop to these intervals
+
+        * ``False``: do not crop
+        * ``True``: crop to the boundaries of the first base image
+        * ``(zmax, ymax, xmax)``: crop from from 0 to these coordinates
+        * ``((zmin, zmax), (ymin, ymax), (xmin, xmax))``: crop to these intervals
     transform_type : Transform subclass or None, optional
         Deprecated alias for ``transform``. Used only when ``transform`` is
         ``None``.
