@@ -24,9 +24,9 @@ class TestTransforms(unittest.TestCase):
             TranslateParametric,
             Identity,
             RescaleParametric,
-            ShearParametric,
+            AffineParametric,
             FlipParametric,
-            TranslateRotateRescaleParametric,
+            AffineParametric,
             AffineParametric,
         ]
         cls._fixed_transforms_params = [
@@ -35,7 +35,7 @@ class TestTransforms(unittest.TestCase):
             dict(z=-10, y=0.3, x=4),
             dict(),
             dict(z=2, y=4, x=3),
-            dict(yzshear=0.3, xzshear=-0.2, xyshear=0.1, xshift=4, yshift=-5, zshift=2),
+            dict(z=2, y=-5, x=4, yzshear=0.3, xzshear=-0.2, xyshear=0.1),
             dict(z=True, zthickness=30),
             dict(
                 xscale=1.2,
@@ -57,7 +57,7 @@ class TestTransforms(unittest.TestCase):
         cls._point_transforms = [
             Rigid,
             Translate,
-            TranslateRotate2D,
+            Rigid,
             Affine,
             Triangulation,
         ]
@@ -268,7 +268,7 @@ class TestTransforms(unittest.TestCase):
         )
         self.assertTrue(
             self.close(
-                TranslateRotate2D(
+                Rigid(
                     self.points_pre,
                     (self.points_pre + [0, 2, 1]) @ rotation_matrix(30, 0, 0),
                 ).transform(self.points_pre),
@@ -282,15 +282,15 @@ class TestTransforms(unittest.TestCase):
             )
         )
 
-    def test_affinefixed_matches_existing_special_cases(self):
+    def test_affineparametric_matches_special_cases(self):
         p = self.new_points
-        trr = TranslateRotateRescaleParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1)
+        trr = AffineParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1)
         aff_no_shear = AffineParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1, yzshear=0, xzshear=0, xyshear=0)
-        self.assertTrue(self.close(trr.transform(p), aff_no_shear.transform(p)), msg="AffineParametric with zero shear should match TranslateRotateRescaleParametric")
+        self.assertTrue(self.close(trr.transform(p), aff_no_shear.transform(p)), msg="AffineParametric with default shear should match explicit zero shear")
 
-        shear = ShearParametric(zshift=2, yshift=-5, xshift=4, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
+        shear = AffineParametric(z=2, y=-5, x=4, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
         aff_no_rot_scale = AffineParametric(z=2, y=-5, x=4, zrotate=0, yrotate=0, xrotate=0, zscale=1, yscale=1, xscale=1, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
-        self.assertTrue(self.close(shear.transform(p), aff_no_rot_scale.transform(p)), msg="AffineParametric with identity rotate/scale should match ShearParametric")
+        self.assertTrue(self.close(shear.transform(p), aff_no_rot_scale.transform(p)), msg="AffineParametric with default rotate/scale should match explicit identity rotate/scale")
 
 
 class TestSpotTransforms(unittest.TestCase):
@@ -311,7 +311,7 @@ class TestSpotTransforms(unittest.TestCase):
             t(**tp)
             for t, tp in zip(cls._fixed_transforms_spot, cls._fixed_transforms_params_spot)
         ]
-        cls._point_transforms_spot = [TranslateRotate2D, Translate, Rigid]
+        cls._point_transforms_spot = [Rigid, Translate, Rigid]
         cls._point_transforms_spot_slow = [Triangulation]
 
         cls.points_pre = np.random.randn(100, 3) + 50
@@ -418,9 +418,9 @@ class TestGraphs(unittest.TestCase):
             TranslateParametric,
             Identity,
             RescaleParametric,
-            ShearParametric,
+            AffineParametric,
             FlipParametric,
-            TranslateRotateRescaleParametric,
+            AffineParametric,
         ]
         fixed_transforms_params = [
             dict(z=3.2, y=5, x=-24, zrotate=3.4, yrotate=10, xrotate=20),
@@ -428,7 +428,7 @@ class TestGraphs(unittest.TestCase):
             dict(z=-10, y=0.3, x=4),
             dict(),
             dict(z=2, y=4, x=3),
-            dict(yzshear=0.3, xzshear=-0.2, xyshear=0.1, xshift=4, yshift=-5, zshift=2),
+            dict(z=2, y=-5, x=4, yzshear=0.3, xzshear=-0.2, xyshear=0.1),
             dict(z=True, zthickness=30),
             dict(
                 xscale=1.2,

@@ -445,7 +445,7 @@ class Graph:
         --------
         >>> g.add_node("session1", image=session1_vol)
         >>> g.add_node("session1_1umvoxels", image="session1")
-        >>> g.add_edge("session1", "session1_1umvoxels", Rescale(z=1, x=.3, y=.3))
+        >>> g.add_edge("session1", "session1_1umvoxels", RescaleParametric(z=1, x=.3, y=.3))
 
         """
         # Image can either be a 3-dimensional ndarray or a string of another node
