@@ -536,6 +536,9 @@ class Graph:
         # graphs with non-invertible transforms.
         inv = transform.invert()
         self.edges[to][frm] = inv
+        cycle = self._is_acyclic()
+        if cycle is not True:
+            print("Warning: graph contains a cycle: " + " -> ".join(cycle))
 
     def remove_edge(self, frm, to):
         """Remove an edge and its reverse edge if present.
@@ -557,6 +560,48 @@ class Graph:
         del self.edges[frm][to]
         if frm in self.edges[to].keys():
             del self.edges[to][frm]
+
+    def _is_acyclic(self):
+        """Return ``True`` if acyclic, otherwise return the first cycle found.
+
+        Returns
+        -------
+        bool or list[str]
+            ``True`` when acyclic, else a cycle as node names with the start
+            node repeated at the end (for example ``["a", "b", "c", "a"]``).
+        """
+        visited = set()
+        path = []
+        path_index = {}
+
+        def _dfs(node, parent):
+            visited.add(node)
+            path_index[node] = len(path)
+            path.append(node)
+
+            for neighbor in self.edges.get(node, {}):
+                # Undirected traversal: skip the edge we came from.
+                if neighbor == parent:
+                    continue
+                # Back-edge to an active node in this DFS path => cycle.
+                if neighbor in path_index:
+                    return path[path_index[neighbor]:] + [neighbor]
+                if neighbor not in visited:
+                    cycle = _dfs(neighbor, node)
+                    if cycle is not True:
+                        return cycle
+
+            path.pop()
+            del path_index[node]
+            return True
+
+        for node in self.nodes:
+            if node not in visited:
+                cycle = _dfs(node, None)
+                if cycle is not True:
+                    return cycle
+
+        return True
 
     def connected_components(self):
         """Find connected components in the graph.
@@ -792,7 +837,9 @@ class Graph:
         fn = filename
         if fn is None:
             fn = tempfile.mkstemp()[1]
-        g = graphviz.Digraph(self.name, filename=fn)
+        g = graphviz.Digraph(self.name, filename=fn, engine="sfdp")
+        g.attr(overlap="prism", sep="+12", K="1.2", repulsiveforce="1.2", splines="true", forcelabels="true") 
+        g.attr('edge', fontsize='10')
         # Find all nodes that have an Identity edge and choose one as the 'base" node
         ur_node = {}
         ur_node_names = {}

@@ -1,5 +1,7 @@
 from .base import Identity, Translate, Transform, PointTransform, AffineTransform, FlipParametric
+import html
 import numpy as np
+import re
 import scipy.ndimage
 import napari
 import magicgui
@@ -885,13 +887,19 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
 
     dlg = QtWidgets.QDialog()
     dlg.setWindowTitle("CASTalign interactive alignment (GUI)")
-    dlg.resize(1280, 920)
+    dlg.resize(980, 720)
     root = QtWidgets.QVBoxLayout(dlg)
     root.setContentsMargins(10, 8, 10, 10)
     root.setSpacing(6)
 
-    current_label = QtWidgets.QLabel()
-    current_label.setWordWrap(True)
+    current_title = QtWidgets.QLabel("Current transform")
+    current_title.setStyleSheet("QLabel { font-weight: 700; }")
+    current_text = QtWidgets.QTextEdit()
+    current_text.setReadOnly(True)
+    current_text.setLineWrapMode(QtWidgets.QTextEdit.WidgetWidth)
+    current_text.setMinimumHeight(72)
+    current_text.setMaximumHeight(140)
+    button_copy_current = QtWidgets.QPushButton("Copy")
     status_label = QtWidgets.QLabel("")
     status_label.setWordWrap(True)
     status_label.setVisible(False)
@@ -901,7 +909,13 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     header_layout = QtWidgets.QVBoxLayout(header)
     header_layout.setContentsMargins(8, 6, 8, 6)
     header_layout.setSpacing(2)
-    header_layout.addWidget(current_label)
+    header_row = QtWidgets.QHBoxLayout()
+    header_row.setContentsMargins(0, 0, 0, 0)
+    header_row.addWidget(current_title)
+    header_row.addStretch(1)
+    header_row.addWidget(button_copy_current)
+    header_layout.addLayout(header_row)
+    header_layout.addWidget(current_text)
     header_layout.addWidget(status_label)
     root.addWidget(header)
 
@@ -956,8 +970,23 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     def _push_history():
         t_hist.append(t)
 
+    def _copy_current_transform():
+        QtWidgets.QApplication.clipboard().setText(str(t))
+        _set_status("Current transform copied to clipboard", level="info")
+
+    def _format_transform_html(transform_text):
+        parts = []
+        prev = 0
+        for match in re.finditer(r"(?<![\w.])([A-Za-z_]\w*)\s*\(", transform_text):
+            start, end = match.span(1)
+            parts.append(html.escape(transform_text[prev:start]))
+            parts.append(f"<b>{html.escape(transform_text[start:end])}</b>")
+            prev = end
+        parts.append(html.escape(transform_text[prev:]))
+        return "<pre style='white-space: pre-wrap; margin: 0; font-family: monospace;'>" + "".join(parts) + "</pre>"
+
     def _refresh():
-        current_label.setText(f"Current transform: {t}")
+        current_text.setHtml(_format_transform_html(str(t)))
         in_prefix_mode = _pending_prefix is not None
         is_point = isinstance(t, PointTransform)
         has_refs = len(refs_saved) > 0 or len(refs_current) > 0
@@ -1272,6 +1301,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
             row += 1
 
     quit_button.setText("Quit (q)")
+    button_copy_current.clicked.connect(_copy_current_transform)
     quit_button.clicked.connect(dlg.accept)
     all_buttons.append(quit_button)
 

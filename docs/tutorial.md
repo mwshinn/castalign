@@ -158,6 +158,16 @@ There are two important methods:
   Transform library, it may not appear to be aligned unless you shift it by the
   position of the origin.  See the function documentation for more information.
 
+There is also a shorthand way to apply transforms.  You can call a transform
+like a function: if the input looks like points, it uses
+<a href="api_transforms.html#castalign.base.Transform.transform"><code>transform()</code></a>, and otherwise it uses
+<a href="api_transforms.html#castalign.base.Transform.transform_image"><code>transform_image()</code></a>.
+
+```python
+p_out = t([10, 20, 30])        # Same as t.transform([10, 20, 30])
+img_out = t(img1)              # Same as t.transform_image(img1)
+```
+
 ### Examples
 
 As a simple example, let's consider <a href="api_transforms.html#castalign.base.TranslateParametric">TranslateParametric</a>.  Here we show how to
@@ -221,97 +231,233 @@ The second function is <a href="api_gui.html#castalign.gui.align_interactive"><c
 chains of composed transforms.  For example, it is often useful to perform a
 manual translation or rotation before selecting keypoints for a point-based
 transform, because it makes it easier to find the matching keypoints in both
-images.
+images.  Usually, this is the one you want to use.
 
+### Creating and editing transforms with the GUI
 
-### Adjusting parameters
+Let's use the <a
+href="api_gui.html#castalign.gui.align_interactive"><code>align_interactive()</code></a>
+GUI, designed for selecting, editing, and chaining together transforms.  Let's
+see how we align two volumetric images.
 
-On the left-hand side pane of the Napari window, you will see some buttons and a
-list of parameters, with text boxes or checkboxes to adjust their value.  If the
-box "real-time" is selected, then every edit of these boxes will change the
-value.  If real-time is not selected, you need to press the "Perform transform"
-button after each edit.
+```python
+# First create some dummy data for us to align
+import skimage
+fixed = skimage.data.cells3d()[:, 0]
+movable = skimage.transform.resize(fixed[3:,5:,:-2], (60, 240, 250))
 
-For transforms that involve translation, you can adjust this interactively using
-drag-and-drop with the mouse.  Simply hold down the Ctrl key, and then you can
-drag-and-drop the movable image.  Note that this is only available in Napari's
-2D visualisation, not the 3D visualisation.  Also note that you will only see
-the results of this if the "real-time" checkbox is selected.
+# Now import CASTalign.  We need to iImport the GUI separately, 
+# since CASTalign can be used on computers without GUIs.
+import castalign as ca
+import castalign.gui 
 
-### Selecting points for point-based transforms
+t = ca.gui.align_interactive(movable, fixed)
 
-First, click on the "Add point" button on the side panel.  The "base" layer will
-be highlighted and the "movable" layer will fade into the background.  Select
-the key point on this layer by left clicking.  Once you do, this will fade into
-the background and the "movable" layer will be highlighted.  Left click to
-select the keypoint on this layer.  Continue adding keypoints until you have a
-sufficient number for your Transform, and then click "Perform transform" to
-morph the movable image according to your Transform.
+print(t)
+```
 
-If the location of the keypoint is brighter than its surroundings, such as a
-cell, you can right click instead of left click, and the location of peak
-brightness near the cursor will be detected, and the keypoint will be placed here.
+The GUI will look like this:
 
-If you wish to revert to the original Transform, click the "revert" button.  The
-keypoints will be saved, but the original Transform will be applied, ignoring
-the keypoints.  Note that the active transform displayed on the screen will be
-the one returned, so if you revert before closing the window, the keypoints will
-not be saved.  Likewise, if you do not click "perform transform" before closing,
-the previously performed transform will be returned.
+![align_interactive() GUI](_static/screenshots/align_interactive.png)
 
+On the top row, we can see see the current transform, which is just Identity()
+for now (i.e., no transform).  The next section shows parametric transforms,
+followed by point-based transforms, other tools, and then two options to modify
+poinst-based transforms.
 
-- *Adjusting parameters by directly setting their value.*  As soon as the value
-  is changed, the display is updated, allowing the results to be
-- *Adjusting the translation by dragging and dropping the movable image.*  This is
-  accomplished by holding the Ctrl key while clicking and dragging.  This only works if the translatoi
+### Parametric transforms
 
-### Examples using the GUI
+Let's start with a parametric transform.  "Rigid" (RigidParametric) is usually a
+good place to start.  Click the "Rigid" button under the "Parametric Transforms"
+section.
 
+We see a GUI come up that looks like this:
 
+![alignment_gui() parametric GUI](_static/screenshots/alignment_gui_parametric.png)
 
+In the centre, we see two images that are not quite aligned with each other.  On
+the bottom left, we see several options for parameters that can specify a rigid
+transformation.
 
+First, let's try to align these by eye.  Hold Ctrl+Shift, and then click and
+drag the image in the viewport while continuing to hold down Ctrl+Shift.  You
+should be able to drag and drop this image.
 
-### <a href="api_graphs.html">Graphs</a>
+Now, look down at the bottom left side of the screen.  The textbox sliders for
+x, y, and z should have changed.  You can try changing these sliders and see
+that the position of the green image in the viewport moves, while the red image
+stays the same.
 
-With most real-world data, many transforms will be needed, and all of these
-transforms will relate to each other, possibly in complex ways.  It can quickly
-become difficult to manage which Transform takes you from which space to which
-other space.  We can organise all of these transforms into a <a href="api_graphs.html#castalign.graph.Graph">Graph</a>.
+You will see it is hard to get them to be exactly the same.  Move them to be
+somewhat close, and then get out of the interface by clicking the X button in
+the corner.
 
-A <a href="api_graphs.html#castalign.graph.Graph">Graph</a> is an undirected graph of transforms from each space to each
-other space.  Each space (e.g., image) is identified by a unique name, and is
-represented by a node in the graph.  Each edge connecting the nodes in the graph
-is a Transform.  To create a new node in a <a href="api_graphs.html#castalign.graph.Graph">Graph</a> ``g``, run
-<a href="api_graphs.html#castalign.graph.Graph.add_node"><code>g.add_node(node_name)</code></a>.  To specify a Transform between two nodes, i.e., an
-edge, run <a href="api_graphs.html#castalign.graph.Graph.add_edge"><code>g.add_edge(node1, node2, tform)</code></a>.
+### Point-based transforms
 
-This library always uses the "from -> to" convention in the order of arguments.
-So in the previous example, the Transform ``tform`` converts points in space
-``node1`` to the space ``node2``.  Or, equivalently, "movable image -> base
-image", where ``node1`` is the movable image and ``node2`` is the base image.
+The GUI window to select a transform should appear again.  This time, select
+"Rigid" under the "Point-based Transforms" section.
 
-To obtain the transform between two nodes, use the function
-<a href="api_graphs.html#castalign.graph.Graph.get_transform"><code>g.get_transform(node1, node2)</code></a>.  Even if ``node1`` and ``node2`` are not
-directly connected, the shortest path of Transform compositions will be computed
-and returned.  If two nodes have no connection, this will raise an error.
+![alignment_gui() points GUI](_static/screenshots/alignment_gui_points.png)
 
-To visualise the structure of the graph, run <a href="api_graphs.html#castalign.graph.Graph.visualise"><code>g.visualise()</code></a>.  For extremely
-large graphs, you can use the "nearby" argument to specify a node, and the
-visualisation will only include nodes directly connected to the given node.
+You will see a window that looks similar to the one we saw earlier, except this
+time, there will be buttons on the bottom left instead of text box sliders.
+This is the interface for adding corresponding points between the two images.
 
-Often, a <a href="api_graphs.html#castalign.graph.Graph">Graph</a> may also contain the raw images themselves.  This is accomplished
-by passing the "image" argument to <a href="api_graphs.html#castalign.graph.Graph.add_node"><code>g.add_node</code></a>.  The images will be
-aggressively compressed with minimal loss in quality through the use of video
-codecs, with compression rates on high-resolution microscopy images often
-approaching 100:1 or higher.
+To add a new point, click on "Add new point".  The movable image with
+temporarily become faded out, and you can choose a point in the base image.
+Left clicking will select the point underneath the cursor, and right clicking
+will find the nearest intensity peak; in other words, if you click near a bright
+spot, it will find the centre of the bright spot.  After clicking, the
+background image will fade out and you can select a point on the movable image
+using the same mechanism.  To remove a point, click "Remove point" and then
+click nearby the point you would like to remove; both points in the pair will be
+removed.
 
-When images are included directly, several convenience methods can be used.
-Most notably, the <a href="api_gui.html#castalign.gui.GraphViewer"><code>GraphViewer</code></a> is a napari viewer that accepts node names as
-image or label layers.  The base coordinate system is the first added image, and
-all subsequent added images will be transformed into the space of first image.
-If there is no path of transforms in the graph, adding the other images will
-return an error.  Additionally, it allows using `graph_alignment_gui`, a
-shortcut version of <a href="api_gui.html#castalign.gui.alignment_gui"><code>alignment_gui()</code></a> that accepts node names instead of images.
+Once you have added a few points this way, you can click the "Perform transform"
+button.  This will fit the transform and readjust the display.  If you click
+"Reset transform", it will undo the transform, but keep the selected points.
+
+When you have finished adding points, and are satisfied with the transform,
+close out of the viewer by clicking the X in the corner.  The current active
+transform will be added to the transform chain.  Note that the currently
+displayed transform is the one that is added; if you have clicked reset
+transform, no transform will be saved, or have not clicked "Perform transform"
+since adding points, the new points added since clicking it will not be saved.
+
+Each additional transform added through the interface is added to the chain.
+
+### Changing the last transform in the chain
+
+Notice that the Rigid transform does not provide a good fit to the images.
+(This is by design, since we rescaled the image when constructing it.)  If you
+notice that the transform you selected points for is inapproriate, you can
+convert the points from the previous transform into a different transform.  In
+the GUI, notice that the buttons towards the bottom, which were previously
+greyed out, are now clickable.  This is because your most recent transform was
+point-based.
+
+Click the "Convert to Affine" button at the bottom of the transform selection
+dialog.  A viewer will come up, which will be just like the point-based viewer
+and will have all of the same points selected, but the transform will be an
+Affine transform instead of a Rigid transform.  If it looks okay, you can close
+out to accept, otherwise, you can add more points.
+
+The "Extend" buttons near the "Convert" buttons work similarly, except instead
+of replacing the old transform, they use the _errors_ of the previous
+point-based transform as a starting point for a new transform.  The primary use
+of this is to use a point-based transform immediately followed by a non-linear
+transform.
+
+### Saving transforms
+
+There are three ways that the GUI makes transform chains available.  The first
+is by returning the transform as the return value of the "align_interactive"
+function.  In this way, if can be incorporated into Python scripts.
+
+Second, the transform can be saved directly by using the "Save transform"
+button.  This will open a dialog box to save.  Then, it can be loaded with:
+
+```python
+t = pixease.load("/path/to/transform.tf")
+```
+
+The third is by saving to a graph, which we will discuss in the next section....
+
+## <a href="api_graphs.html">Graphs</a>
+
+With most real-world data, many transforms are needed, and all of these
+transforms relate to each other.  It quickly becomes difficult to keep track of
+which transform maps which space to which other space.  A
+<a href="api_graphs.html#castalign.graph.Graph">Graph</a> is how CASTalign organises this.
+
+A Graph stores named spaces as nodes, and transforms between spaces as edges.
+You can also attach images directly to nodes.  This is useful for GUI-driven
+workflows, because you can align by node name instead of repeatedly passing raw
+arrays.
+
+To create a node, use
+<a href="api_graphs.html#castalign.graph.Graph.add_node"><code>g.add_node(name, image=...)</code></a>.
+To define a transform between nodes, use
+<a href="api_graphs.html#castalign.graph.Graph.add_edge"><code>g.add_edge(node1, node2, tform)</code></a>.
+As elsewhere in CASTalign, this follows a "from -> to" convention:
+``tform`` maps from ``node1`` into ``node2``.
+
+Graphs also support shorthand indexing, which is equivalent to the explicit
+methods above:
+
+```python
+g["img1"] = img1                # Same as g.add_node("img1", image=img1)
+g["img1":"img2"] = t            # Same as g.add_edge("img1", "img2", t)
+
+img1_loaded = g["img1"]         # Same as g.get_image("img1")
+t_img12 = g["img1":"img2"]      # Same as g.get_transform("img1", "img2")
+
+"img1" in g                     # Node existence check
+("img1", "img2") in g           # Edge existence check
+del g["img1":"img2"]            # Same as g.remove_edge("img1", "img2")
+```
+
+### Example workflow with three images
+
+Suppose from the previous section you already have ``fixed``, ``movable``, and
+a transform ``t`` returned by ``align_interactive(movable, fixed)``.
+
+```python
+img3 = img2[:,10:,:-15] # Simple translation of img2
+
+g = ca.Graph()
+g["img1"] = movable
+g["img2"] = fixed
+g["img3"] = img3
+
+# Existing alignment from earlier:
+g["img1":"img2"] = t
+```
+
+Now align ``img2`` to ``img3`` in the interactive GUI:
+
+```python
+t_img23 = castalign.gui.align_interactive("img2", "img3", graph=g)
+
+# In the GUI, click "Save to graph" (or "Save to graph and write to disk")
+# to store this edge directly in the graph.
+```
+
+If you close the GUI without saving, you can still add that edge manually:
+
+```python
+g["img2":"img3"] = t_img23
+```
+
+### Getting transforms across indirect paths
+
+There is no direct ``img1 -> img3`` alignment in this example, but Graph will
+compose the path ``img1 -> img2 -> img3`` automatically:
+
+```python
+t_img13 = g["img1":"img3"]
+img1 = g["img1"]
+img1_like_img3 = t_img13(img1, output_size=img3.shape)
+```
+
+In this case, there is only one path, but in the more general case, CASTalign
+will find the shortest path between the two nodes and compose the necessary
+transforms to map from one space to the other.
+
+### Viewing all images in one coordinate system
+
+<a href="api_gui.html#castalign.gui.GraphViewer"><code>GraphViewer</code></a> lets you display graph images in a shared space.  Here,
+everything is shown in ``img1`` coordinates:
+
+```python
+v = castalign.gui.GraphViewer(graph=g, space="img1")
+v.add_image("img1", name="img1 (base)")
+v.add_image("img2", name="img2 -> img1", blending="additive", opacity=0.6)
+v.add_image("img3", name="img3 -> img1", blending="additive", opacity=0.6)
+```
+
+To inspect graph structure itself, run
+<a href="api_graphs.html#castalign.graph.Graph.visualise"><code>g.visualise()</code></a>.
 
 ### <a href="api_shifted_arrays.html#castalign.ndarray_shifted.ndarray_shifted">ndarray_shifted</a>
 
@@ -319,3 +465,16 @@ Normally you should not encounter <a href="api_shifted_arrays.html#castalign.nda
 storage which adds a origin offset to an NDArray.  This allows efficient
 representation and modification of images which undergoes translation relative
 to another image.
+
+In day-to-day use, you can treat this like a normal numpy array most of the
+time.
+
+Practical tips:
+
+- If an image looks offset when you plot it, use ``img.origin`` as the display
+  translation (for example in napari).
+- If another library expects a plain ndarray, use ``np.asarray(img)``.
+- If you need to convert between absolute coordinates and voxel indices, use
+  <a href="api_utilities.html#castalign.utils.absolute_coords_to_voxel_coords"><code>absolute_coords_to_voxel_coords()</code></a>
+  and
+  <a href="api_utilities.html#castalign.utils.voxel_coords_to_absolute_coords"><code>voxel_coords_to_absolute_coords()</code></a>.
