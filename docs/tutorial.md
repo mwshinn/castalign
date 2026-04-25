@@ -363,7 +363,7 @@ t = ca.Transform.load("/path/to/transform.tf")
 
 The third is by saving to a <a href="api_graphs.html#castalign.graph.Graph">graph</a>, which we will discuss in the next section....
 
-## <a href="api_graphs.html">Graphs</a>
+## Graphs
 
 With most real-world data, many transforms are needed, and all of these
 transforms relate to each other.  It quickly becomes difficult to keep track of
@@ -459,7 +459,7 @@ v.add_image("img3", name="img3 -> img1", blending="additive", opacity=0.6)
 To inspect graph structure itself, run
 <a href="api_graphs.html#castalign.graph.Graph.visualise"><code>g.visualise()</code></a>.
 
-### <a href="api_shifted_arrays.html#castalign.ndarray_shifted.ndarray_shifted">ndarray_shifted</a>
+## Shifted NDArrays
 
 Normally you should not encounter <a href="api_shifted_arrays.html#castalign.ndarray_shifted.ndarray_shifted">ndarray_shifted</a> objects.  This is an internal data
 storage which adds a origin offset to an NDArray.  This allows efficient
