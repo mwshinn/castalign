@@ -20,7 +20,7 @@ TRANSFORMS = [
     ("Translate", "translate"),
     ("Rigid", "rotate_translate"),
     ("Affine", "affine"),
-    ("PlaneConstrainedAffine", "plane_affine"),
+    ("LaminarAffine", "laminar_affine"),
     ("RigidParametric", "rotate_translate"),
     ("AffineParametric", "affine"),
     ("MatrixParametric", "matrix"),
@@ -29,7 +29,7 @@ TRANSFORMS = [
     ("TranslateParametric", "translate"),
     ("Triangulation", "triangulation"),
     # Intentionally matching Triangulation look
-    ("PlaneConstrainedTriangulation", "triangulation"),
+    ("LaminarTriangulation", "triangulation"),
     ("TranslateRotate2D", "rotate2d"),
     ("Flip", "flip"),
     ("TranslateRotateRescaleParametric", "trs"),
@@ -79,7 +79,7 @@ def poly_transform(points, kind):
     if kind == "shear":
         cy = sum(y for _, y in pts) / len(pts)
         return [[x + 0.72 * (y - cy), y] for x, y in pts]
-    if kind in ("affine", "matrix", "plane_affine"):
+    if kind in ("affine", "matrix", "laminar_affine"):
         cx = sum(x for x, _ in pts) / len(pts)
         cy = sum(y for _, y in pts) / len(pts)
         out = []
@@ -87,7 +87,7 @@ def poly_transform(points, kind):
             dx, dy = x - cx, y - cy
             nx = 1.34 * dx + 0.5 * dy
             ny = -0.32 * dx + 0.66 * dy
-            if kind == "plane_affine":
+            if kind == "laminar_affine":
                 ny *= 0.5
             out.append([nx + cx + 8, ny + cy - 8])
         return out
@@ -209,7 +209,7 @@ def draw_scene(kind, name):
 
     if kind == "flip":
         d.text((236, 170), "mirror", fill=PURPLE, font=FONT_SMALL)
-    elif kind in ("shear", "affine", "matrix", "plane_affine"):
+    elif kind in ("shear", "affine", "matrix", "laminar_affine"):
         d.text((224, 170), "skew+stretch", fill=PURPLE, font=FONT_SMALL)
     elif kind == "triangulation":
         d.text((218, 170), "nonlinear warp", fill=PURPLE, font=FONT_SMALL)

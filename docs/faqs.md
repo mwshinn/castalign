@@ -37,7 +37,7 @@ t_full = s + t_ds + s.invert()
 Here `t_full` is the transform to apply to the original full-resolution images.
 
 Another reason why CASTalign may be slow is if you are using a **non-linear
-triangulation with many control points** (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a> / <a href="api_transforms.html#castalign.base.PlaneConstrainedTriangulation"><code>PlaneConstrainedTriangulation</code></a>).  This can only be fixed by reducing
+triangulation with many control points** (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a> / <a href="api_transforms.html#castalign.base.LaminarTriangulation"><code>LaminarTriangulation</code></a>).  This can only be fixed by reducing
 the number of control points.
 
 A final reason why CASTalign may be slower than expected is if

@@ -69,7 +69,7 @@ Point-based transforms
    :show-inheritance:
    :no-members:
 
-.. autoclass:: castalign.base.PlaneConstrainedAffine
+.. autoclass:: castalign.base.LaminarAffine
    :show-inheritance:
    :no-members:
 
@@ -77,7 +77,7 @@ Point-based transforms
    :show-inheritance:
    :no-members:
 
-.. autoclass:: castalign.base.PlaneConstrainedTriangulation
+.. autoclass:: castalign.base.LaminarTriangulation
    :show-inheritance:
    :no-members:
 

@@ -171,10 +171,10 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
 </div>
 
 <div class="transform-card">
-  <img src="_static/transforms/transform_PlaneConstrainedAffine.png" alt="PlaneConstrainedAffine transform example">
+  <img src="_static/transforms/transform_LaminarAffine.png" alt="LaminarAffine transform example">
   <div>
-    <h3>Plane-constrained affine (<a href="api_transforms.html#castalign.base.PlaneConstrainedAffine"><code>PlaneConstrainedAffine</code></a>)</h3>
-    <p><strong>What it does:</strong> Affine fit constrained by dominant plane statistics.</p>
+    <h3>Laminar affine (<a href="api_transforms.html#castalign.base.LaminarAffine"><code>LaminarAffine</code></a>)</h3>
+    <p><strong>What it does:</strong> Affine fit in a dominant laminar plane with separate normal-depth handling.</p>
     <p><strong>Parameters/defaults:</strong> <code>invert=False</code>.</p>
     <p><strong>Geometry:</strong> Pancake, Rice paper.</p>
     <p class="geo-badges">
@@ -198,10 +198,10 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
 </div>
 
 <div class="transform-card">
-  <img src="_static/transforms/transform_PlaneConstrainedTriangulation.png" alt="PlaneConstrainedTriangulation transform example">
+  <img src="_static/transforms/transform_LaminarTriangulation.png" alt="LaminarTriangulation transform example">
   <div>
-    <h3>Plane-constrained triangulation (<a href="api_transforms.html#castalign.base.PlaneConstrainedTriangulation"><code>PlaneConstrainedTriangulation</code></a>)</h3>
-    <p><strong>What it does:</strong> Nonlinear triangulation warp constrained to a fitted 2D plane in 3D.</p>
+    <h3>Laminar triangulation (<a href="api_transforms.html#castalign.base.LaminarTriangulation"><code>LaminarTriangulation</code></a>)</h3>
+    <p><strong>What it does:</strong> Nonlinear triangulation warp in a fitted laminar plane in 3D.</p>
     <p><strong>Parameters/defaults:</strong> <code>invert=True</code>, <code>normal_z=0.0</code>, <code>normal_y=0.0</code>, <code>normal_x=0.0</code>.</p>
     <p><strong>Geometry:</strong> Pancake, Rice paper‡.</p>
     <p class="geo-badges">

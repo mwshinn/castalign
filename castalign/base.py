@@ -858,13 +858,14 @@ class MatrixParametric(AffineTransform,Transform):
         newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ self.matrix.T
         return self.__class__(a11=p(11), a12=p(21), a13=p(31), a21=p(12), a22=p(22), a23=p(32), a31=p(13), a32=p(23), a33=p(33), z=-newzyx[0], y=-newzyx[1], x=-newzyx[2])
 
-class PlaneConstrainedAffine(AffineTransform,PointTransform):
-    """Affine fit constrained to a dominant plane (e.g., section-like data).
+class LaminarAffine(AffineTransform,PointTransform):
+    """Laminar affine fit for section-like data.
 
-    Splits fitting into high-variance in-plane components plus low-variance
-    normal-depth component to reduce skew in thin volumes.
+    Splits fitting into high-variance laminar components plus low-variance
+    normal-depth component to reduce skew in thin volumes. The laminar basis is
+    estimated from the dominant fitted plane of the matched points.
     """
-    NAME = "Plane-constrained affine"
+    NAME = "Laminar affine"
     SHORTCUT_KEY = "P"
     SORT_WEIGHT = -96
     DEFAULT_PARAMETERS = {"invert": False}
@@ -1016,8 +1017,8 @@ class Triangulation(PointTransform):
     def invert(self):
         return self.__class__(invert=(not self.params["invert"]), points_start=self.points_end, points_end=self.points_start)
 
-class PlaneConstrainedTriangulation(PointTransform):
-    """Nonlinear triangulation constrained to a fitted 2D plane in 3D.
+class LaminarTriangulation(PointTransform):
+    """Nonlinear laminar triangulation in 3D.
 
     This is generally the recommended nonlinear transform for mostly flat
     section-like 3D data (broad in two dimensions, thinner in the third).
@@ -1027,7 +1028,7 @@ class PlaneConstrainedTriangulation(PointTransform):
 
     Notes
     -----
-    The transform triangulates points after projection into the fitted plane,
+    The transform triangulates points after projection into the fitted laminar plane,
     then computes local 3D affine maps using those projected triangles plus a
     normal-direction anchor so depth is handled consistently.
 
@@ -1035,7 +1036,7 @@ class PlaneConstrainedTriangulation(PointTransform):
     ``find_simplex`` directly, while the other uses manual triangle containment
     checks due to SciPy API limitations for this specific inverse workflow.
     """
-    NAME = "Plane-constrained triangulation"
+    NAME = "Laminar triangulation"
     SHORTCUT_KEY = "N"
     SORT_WEIGHT = 99
     DEFAULT_PARAMETERS = {"invert": True, "normal_z": 0.0, "normal_y": 0.0, "normal_x": 0.0} # Start with inverted because inverted is slower for points and faster for images

@@ -128,19 +128,19 @@ See also the [Transforms Gallery](transforms_gallery) for visual examples and pa
 | <a href="api_transforms.html#castalign.base.RigidParametric">RigidParametric</a> | X | X | X |  | X |
 | <a href="api_transforms.html#castalign.base.Affine">Affine</a> | X | † |  | X | X |
 | <a href="api_transforms.html#castalign.base.AffineParametric">AffineParametric</a> | X | † |  |  | X |
-| <a href="api_transforms.html#castalign.base.PlaneConstrainedAffine">PlaneConstrainedAffine</a> |  | X | X | X | X |
+| <a href="api_transforms.html#castalign.base.LaminarAffine">LaminarAffine</a> |  | X | X | X | X |
 | <a href="api_transforms.html#castalign.base.FlipParametric">FlipParametric</a> | X | X | X |  | X |
 | <a href="api_transforms.html#castalign.base.MatrixParametric">MatrixParametric</a> | X | X | X |  | X |
 | <a href="api_transforms.html#castalign.base.RescaleParametric">RescaleParametric</a> | X | X | X |  | X |
 | <a href="api_transforms.html#castalign.base.Triangulation">Triangulation</a> | X |  |  | X |  |
-| <a href="api_transforms.html#castalign.base.PlaneConstrainedTriangulation">PlaneConstrainedTriangulation</a> |  | X | ‡ | X |  |
+| <a href="api_transforms.html#castalign.base.LaminarTriangulation">LaminarTriangulation</a> |  | X | ‡ | X |  |
 
 
 † It is possible to do a successful <a href="api_transforms.html#castalign.base.Affine">Affine</a> with a pancake
 geometry, but make sure to match at least one point at the top and bottom near
 each of the four corners.  Otherwise, shear effects will dominate the transform.
 
-‡ When using <a href="api_transforms.html#castalign.base.PlaneConstrainedTriangulation">PlaneConstrainedTriangulation</a> with a movable image that has a rice paper
+‡ When using <a href="api_transforms.html#castalign.base.LaminarTriangulation">LaminarTriangulation</a> with a movable image that has a rice paper
 geometry, it is generally more effective to set the rice paper image as the
 target image when performing the alignment.
 

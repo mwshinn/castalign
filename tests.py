@@ -61,7 +61,7 @@ class TestTransforms(unittest.TestCase):
             Affine,
             Triangulation,
         ]
-        cls._point_transforms_2d = [PlaneConstrainedTriangulation, PlaneConstrainedAffine]
+        cls._point_transforms_2d = [LaminarTriangulation, LaminarAffine]
         cls._point_transforms_slow = [DistanceWeightedAverage] if TEST_SLOW_TRANSFORMS else []
 
         points_pre_flat = np.random.rand(20, 3)
