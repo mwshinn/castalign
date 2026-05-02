@@ -942,11 +942,11 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     layout_point.setVerticalSpacing(6)
     root.addWidget(group_point)
 
-    group_modify = QtWidgets.QGroupBox("Modify / other actions")
-    layout_modify = QtWidgets.QGridLayout(group_modify)
-    layout_modify.setHorizontalSpacing(8)
-    layout_modify.setVerticalSpacing(6)
-    root.addWidget(group_modify)
+    group_convert = QtWidgets.QGroupBox("Convert previous point-based transform")
+    layout_convert = QtWidgets.QGridLayout(group_convert)
+    layout_convert.setHorizontalSpacing(8)
+    layout_convert.setVerticalSpacing(6)
+    root.addWidget(group_convert)
 
     group_extend = QtWidgets.QGroupBox("Extend previous point-based transform")
     layout_extend = QtWidgets.QGridLayout(group_extend)
@@ -954,11 +954,11 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     layout_extend.setVerticalSpacing(6)
     root.addWidget(group_extend)
 
-    group_convert = QtWidgets.QGroupBox("Convert previous point-based transform")
-    layout_convert = QtWidgets.QGridLayout(group_convert)
-    layout_convert.setHorizontalSpacing(8)
-    layout_convert.setVerticalSpacing(6)
-    root.addWidget(group_convert)
+    group_modify = QtWidgets.QGroupBox("Modify / other actions")
+    layout_modify = QtWidgets.QGridLayout(group_modify)
+    layout_modify.setHorizontalSpacing(8)
+    layout_modify.setVerticalSpacing(6)
+    root.addWidget(group_modify)
 
     quit_button = QtWidgets.QPushButton("Quit")
     root.addWidget(quit_button)
