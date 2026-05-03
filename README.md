@@ -1,9 +1,8 @@
 # CASTalign: Coppafish, Antibody Staining, and Two-photon alignment
 
-CASTalign allows you to register 3D microscopy images to each other and to *in
+CASTalign allows you to register hundreds of 3D microscopy images to each other and to *in
 vivo* two-photon imaging.  It is optimised to allow registration between
-CoppaFISH 3D, antibody staining (e.g., immunofluorescence), and *in vivo*
-imaging.
+large datasets including coppaFISH 3D, immunofluorescence labelling, and *in vivo* imaging.
 
 # Installation
 
@@ -23,4 +22,4 @@ Alternatively, you can install from github:
 
 # Usage
 
-See the [tutorial](https://castalign.readthedocs.io/en/latest/tutorial/) in the [documentation](https://castalign.readthedocs.io/en/latest/).
+See the [tutorial](https://castalign.readthedocs.io/en/latest/tutorial.html) in the [documentation](https://castalign.readthedocs.io/en/latest/).
