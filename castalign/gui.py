@@ -1267,17 +1267,22 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     layout_modify.addWidget(button_toggle_refs, 0, 1)
     all_buttons.append(button_toggle_refs)
 
+    save_icon = QtWidgets.QApplication.style().standardIcon(QtWidgets.QStyle.SP_DialogSaveButton)
+
     button_save = QtWidgets.QPushButton("Save to graph (s)")
+    button_save.setIcon(save_icon)
     button_save.clicked.connect(lambda checked=False: _run_save(write_to_disk=False))
     layout_modify.addWidget(button_save, 2, 0)
     all_buttons.append(button_save)
 
     button_save_disk = QtWidgets.QPushButton("Save to graph and write to disk (S)")
+    button_save_disk.setIcon(save_icon)
     button_save_disk.clicked.connect(lambda checked=False: _run_save(write_to_disk=True))
     layout_modify.addWidget(button_save_disk, 2, 1)
     all_buttons.append(button_save_disk)
 
     button_save_transform = QtWidgets.QPushButton("Save to disk (w)")
+    button_save_transform.setIcon(save_icon)
     button_save_transform.clicked.connect(_run_save_transform_to_disk)
     layout_modify.addWidget(button_save_transform, 2, 2)
     all_buttons.append(button_save_transform)
