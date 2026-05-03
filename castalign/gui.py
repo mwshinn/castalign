@@ -913,7 +913,11 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     button_copy_current = QtWidgets.QPushButton("Copy")
     status_label = QtWidgets.QLabel("")
     status_label.setWordWrap(True)
-    status_label.setVisible(False)
+    status_label.setMinimumWidth(0)
+    status_label.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Fixed)
+    status_height = status_label.fontMetrics().lineSpacing() * 2 + 12
+    status_label.setFixedHeight(status_height)
+    status_label.setStyleSheet("QLabel { background-color: transparent; color: transparent; border: 1px solid transparent; padding: 4px; font-weight: 700; }")
 
     header = QtWidgets.QFrame()
     header.setFrameShape(QtWidgets.QFrame.StyledPanel)
@@ -966,7 +970,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
     def _set_status(msg="", level="error"):
         if msg is None or len(str(msg)) == 0:
             status_label.setText("")
-            status_label.setVisible(False)
+            status_label.setStyleSheet("QLabel { background-color: transparent; color: transparent; border: 1px solid transparent; padding: 4px; font-weight: 700; }")
             return
         print(msg)
         status_label.setText(str(msg))
@@ -1056,7 +1060,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
         nonlocal t
         _push_history()
         t = t.pretransform()
-        _set_status("")
+        _set_status("Removed previous transform", level="info")
         _refresh()
 
     def _run_flip():
@@ -1091,7 +1095,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
             _set_status("No more history to undo", level="warning")
             return
         t = t_hist.pop()
-        _set_status("")
+        _set_status("Undid previous action", level="info")
         _refresh()
 
     def _run_save(write_to_disk=False):
@@ -1102,7 +1106,6 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
         try:
             graph.add_edge(nodes_movable[0], nodes_fixed[0], t)
         except AssertionError:
-            _set_status("Edge already exists, overwriting", level="warning")
             graph.add_edge(nodes_movable[0], nodes_fixed[0], t, update=True)
         if write_to_disk:
             if graph.filename is None:
