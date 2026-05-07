@@ -948,7 +948,7 @@ class Triangulation(PointTransform):
     tetrahedron containment, because SciPy does not provide the exact
     arbitrary-triangulation path needed for this workflow.
     """
-    NAME = "Nonlinear 3D triangulation"
+    NAME = "3D triangulation"
     SHORTCUT_KEY = "V"
     SORT_WEIGHT = 100
     DEFAULT_PARAMETERS = {"invert": True} # Start with inverted because inverted is slower for points and faster for images
