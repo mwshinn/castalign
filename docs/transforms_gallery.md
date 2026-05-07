@@ -66,35 +66,6 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
 </div>
 
 <div class="transform-card">
-  <img src="_static/transforms/transform_AffineParametric.png" alt="AffineParametric transform example">
-  <div>
-    <h3>Affine (<a href="api_transforms.html#castalign.base.AffineParametric"><code>AffineParametric</code></a>)</h3>
-    <p><strong>What it does:</strong> Direct translation + rotation + scale + shear affine map.</p>
-    <p><strong>Parameters/defaults:</strong> <code>z=0.0</code>, <code>y=0.0</code>, <code>x=0.0</code>, <code>zrotate=0.0</code>, <code>yrotate=0.0</code>, <code>xrotate=0.0</code>, <code>zscale=1.0</code>, <code>yscale=1.0</code>, <code>xscale=1.0</code>, <code>yzshear=0.0</code>, <code>xzshear=0.0</code>, <code>xyshear=0.0</code>, <code>invert=False</code>.</p>
-    <p><strong>Geometry:</strong> Cake, Pancake†.</p>
-    <p class="geo-badges">
-      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
-      <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
-    </p>
-  </div>
-</div>
-
-<div class="transform-card">
-  <img src="_static/transforms/transform_MatrixParametric.png" alt="MatrixParametric transform example">
-  <div>
-    <h3>Transformation matrix (<a href="api_transforms.html#castalign.base.MatrixParametric"><code>MatrixParametric</code></a>)</h3>
-    <p><strong>What it does:</strong> Direct 3x3 matrix + translation entry.</p>
-    <p><strong>Parameters/defaults:</strong> <code>a11=1</code>, <code>a12=0</code>, <code>a13=0</code>, <code>a21=0</code>, <code>a22=1</code>, <code>a23=0</code>, <code>a31=0</code>, <code>a32=0</code>, <code>a33=1</code>, <code>z=0</code>, <code>y=0</code>, <code>x=0</code>.</p>
-    <p><strong>Geometry:</strong> Cake, Pancake, Rice paper.</p>
-    <p class="geo-badges">
-      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
-      <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
-      <img src="_static/geometries/geometry_rice_paper.png" alt="Rice paper" title="Rice paper">
-    </p>
-  </div>
-</div>
-
-<div class="transform-card">
   <img src="_static/transforms/transform_FlipParametric.png" alt="FlipParametric transform example">
   <div>
     <h3>Flip (<a href="api_transforms.html#castalign.base.FlipParametric"><code>FlipParametric</code></a>)</h3>
@@ -115,6 +86,35 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
     <h3>Rescale (<a href="api_transforms.html#castalign.base.RescaleParametric"><code>RescaleParametric</code></a>)</h3>
     <p><strong>What it does:</strong> Axis-wise scaling.</p>
     <p><strong>Parameters/defaults:</strong> <code>z=1.0</code>, <code>y=1.0</code>, <code>x=1.0</code>.</p>
+    <p><strong>Geometry:</strong> Cake, Pancake, Rice paper.</p>
+    <p class="geo-badges">
+      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
+      <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
+      <img src="_static/geometries/geometry_rice_paper.png" alt="Rice paper" title="Rice paper">
+    </p>
+  </div>
+</div>
+
+<div class="transform-card">
+  <img src="_static/transforms/transform_AffineParametric.png" alt="AffineParametric transform example">
+  <div>
+    <h3>Affine (<a href="api_transforms.html#castalign.base.AffineParametric"><code>AffineParametric</code></a>)</h3>
+    <p><strong>What it does:</strong> Direct translation + rotation + scale + shear affine map.</p>
+    <p><strong>Parameters/defaults:</strong> <code>z=0.0</code>, <code>y=0.0</code>, <code>x=0.0</code>, <code>zrotate=0.0</code>, <code>yrotate=0.0</code>, <code>xrotate=0.0</code>, <code>zscale=1.0</code>, <code>yscale=1.0</code>, <code>xscale=1.0</code>, <code>yzshear=0.0</code>, <code>xzshear=0.0</code>, <code>xyshear=0.0</code>, <code>invert=False</code>.</p>
+    <p><strong>Geometry:</strong> Cake, Pancake†.</p>
+    <p class="geo-badges">
+      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
+      <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
+    </p>
+  </div>
+</div>
+
+<div class="transform-card">
+  <img src="_static/transforms/transform_MatrixParametric.png" alt="MatrixParametric transform example">
+  <div>
+    <h3>Transformation matrix (<a href="api_transforms.html#castalign.base.MatrixParametric"><code>MatrixParametric</code></a>)</h3>
+    <p><strong>What it does:</strong> Direct 3x3 matrix + translation entry.</p>
+    <p><strong>Parameters/defaults:</strong> <code>a11=1</code>, <code>a12=0</code>, <code>a13=0</code>, <code>a21=0</code>, <code>a22=1</code>, <code>a23=0</code>, <code>a31=0</code>, <code>a32=0</code>, <code>a33=1</code>, <code>z=0</code>, <code>y=0</code>, <code>x=0</code>.</p>
     <p><strong>Geometry:</strong> Cake, Pancake, Rice paper.</p>
     <p class="geo-badges">
       <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
@@ -185,19 +185,6 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
 </div>
 
 <div class="transform-card">
-  <img src="_static/transforms/transform_Triangulation.png" alt="Triangulation transform example">
-  <div>
-    <h3>Nonlinear 3D triangulation (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a>)</h3>
-    <p><strong>What it does:</strong> Nonlinear piecewise-affine warp from tetrahedral triangulation.</p>
-    <p><strong>Parameters/defaults:</strong> <code>invert=True</code>.</p>
-    <p><strong>Geometry:</strong> Cake.</p>
-    <p class="geo-badges">
-      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
-    </p>
-  </div>
-</div>
-
-<div class="transform-card">
   <img src="_static/transforms/transform_LaminarTriangulation.png" alt="LaminarTriangulation transform example">
   <div>
     <h3>Laminar triangulation (<a href="api_transforms.html#castalign.base.LaminarTriangulation"><code>LaminarTriangulation</code></a>)</h3>
@@ -207,6 +194,19 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
     <p class="geo-badges">
       <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
       <img src="_static/geometries/geometry_rice_paper.png" alt="Rice paper" title="Rice paper">
+    </p>
+  </div>
+</div>
+
+<div class="transform-card">
+  <img src="_static/transforms/transform_Triangulation.png" alt="Triangulation transform example">
+  <div>
+    <h3>Nonlinear triangulation (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a>)</h3>
+    <p><strong>What it does:</strong> Nonlinear piecewise-affine warp from tetrahedral triangulation.</p>
+    <p><strong>Parameters/defaults:</strong> <code>invert=True</code>.</p>
+    <p><strong>Geometry:</strong> Cake.</p>
+    <p class="geo-badges">
+      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
     </p>
   </div>
 </div>
