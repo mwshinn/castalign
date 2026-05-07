@@ -157,20 +157,6 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
 </div>
 
 <div class="transform-card">
-  <img src="_static/transforms/transform_Affine.png" alt="Affine transform example">
-  <div>
-    <h3>Affine (<a href="api_transforms.html#castalign.base.Affine"><code>Affine</code></a>)</h3>
-    <p><strong>What it does:</strong> Best-fit full affine map from matched points.</p>
-    <p><strong>Parameters/defaults:</strong> <code>invert=False</code>.</p>
-    <p><strong>Geometry:</strong> Cake, Pancake†.</p>
-    <p class="geo-badges">
-      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
-      <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
-    </p>
-  </div>
-</div>
-
-<div class="transform-card">
   <img src="_static/transforms/transform_LaminarAffine.png" alt="LaminarAffine transform example">
   <div>
     <h3>Laminar affine (<a href="api_transforms.html#castalign.base.LaminarAffine"><code>LaminarAffine</code></a>)</h3>
@@ -180,6 +166,20 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
     <p class="geo-badges">
       <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
       <img src="_static/geometries/geometry_rice_paper.png" alt="Rice paper" title="Rice paper">
+    </p>
+  </div>
+</div>
+
+<div class="transform-card">
+  <img src="_static/transforms/transform_Affine.png" alt="Affine transform example">
+  <div>
+    <h3>Affine (<a href="api_transforms.html#castalign.base.Affine"><code>Affine</code></a>)</h3>
+    <p><strong>What it does:</strong> Best-fit full affine map from matched points.</p>
+    <p><strong>Parameters/defaults:</strong> <code>invert=False</code>.</p>
+    <p><strong>Geometry:</strong> Cake, Pancake†.</p>
+    <p class="geo-badges">
+      <img src="_static/geometries/geometry_cake.png" alt="Cake" title="Cake">
+      <img src="_static/geometries/geometry_pancake.png" alt="Pancake" title="Pancake">
     </p>
   </div>
 </div>
@@ -201,7 +201,7 @@ Compact visual guide to the built-in non-deprecated transforms: what each one do
 <div class="transform-card">
   <img src="_static/transforms/transform_Triangulation.png" alt="Triangulation transform example">
   <div>
-    <h3>Nonlinear triangulation (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a>)</h3>
+    <h3>3D triangulation (<a href="api_transforms.html#castalign.base.Triangulation"><code>Triangulation</code></a>)</h3>
     <p><strong>What it does:</strong> Nonlinear piecewise-affine warp from tetrahedral triangulation.</p>
     <p><strong>Parameters/defaults:</strong> <code>invert=True</code>.</p>
     <p><strong>Geometry:</strong> Cake.</p>
