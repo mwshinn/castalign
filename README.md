@@ -23,3 +23,4 @@ Alternatively, you can install from github:
 # Usage
 
 See the [tutorial](https://castalign.readthedocs.io/en/latest/tutorial.html) in the [documentation](https://castalign.readthedocs.io/en/latest/).
+We also have a [tutorial video](https://www.youtube.com/watch?v=iE1r0Dmu-ok).

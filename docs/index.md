@@ -35,6 +35,7 @@ Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs f
 
 self
 tutorial
+Tutorial Video <https://www.youtube.com/watch?v=iE1r0Dmu-ok>
 transforms_gallery
 faqs
 api
