@@ -20,6 +20,10 @@ setup(
     license = 'MIT',
     python_requires='>=3.7',
     url='https://github.com/mwshinn/castalign',
+    project_urls={
+        'Publication': 'https://doi.org/10.64898/2026.05.15.725413',
+        'Documentation': 'https://castalign.readthedocs.io/en/latest/',
+    },
     packages = ['castalign'],
     install_requires = ["numpy", "scipy", "napari", "magicgui", "scikit-image", "imageio", "imageio-ffmpeg", "threadpoolctl", "pyqt5"],
     classifiers = [
@@ -32,4 +36,3 @@ setup(
         "Development Status :: 4 - Beta",
     ]
 )
-

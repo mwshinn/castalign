@@ -4,6 +4,14 @@ CASTalign allows you to register hundreds of 3D microscopy images to each other 
 vivo* two-photon imaging.  It is optimised to allow registration between
 large datasets including coppaFISH 3D, immunofluorescence labelling, and *in vivo* imaging.
 
+# Citation
+
+If CASTalign is useful for your work, please cite the coppaFISH 3D preprint:
+
+> Prankerd, I. H., Shinn, M., et al. (2026). Spatially resolved transcriptomic
+> identification of thousands of neurons recorded in vivo. *bioRxiv*.
+> https://doi.org/10.64898/2026.05.15.725413
+
 # Installation
 
 To install:

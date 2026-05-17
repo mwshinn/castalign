@@ -5,6 +5,9 @@ library for registering 3D microscopy images to each other and to in vivo
 two-photon imaging. It is optimized for aligning CoppaFISH 3D volumes, antibody
 staining (e.g., immunofluorescence), and in vivo imaging.
 
+CASTalign is described in the coppaFISH 3D preprint:
+[Prankerd and Shinn et al., 2026](https://doi.org/10.64898/2026.05.15.725413).
+
 ## Main features
 
 - Align images across modalities with shared, composable transforms.
@@ -26,6 +29,7 @@ Then follow the [tutorial](tutorial) to learn how transforms, GUIs, and graphs f
 - [Tutorial](tutorial): Conceptual overview, examples, and GUIs.
 - [Transforms Gallery](transforms_gallery): Visual transform examples with geometry and parameter defaults.
 - [FAQs](faqs): FAQs
+- [Citation](citation): Paper citation and BibTeX.
 - [API Reference](api): Public classes and functions.
 - [Contact](contact.md): Questions, bugs, and feedback.
 
@@ -38,6 +42,7 @@ tutorial
 Tutorial Video <https://www.youtube.com/watch?v=iE1r0Dmu-ok>
 transforms_gallery
 faqs
+citation
 api
 contact
 ```
