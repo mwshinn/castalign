@@ -29,7 +29,7 @@ def _gpu_chunksize(y_len, x_len, default_chunksize=4_000_000):
         free_mem, _ = cp.cuda.runtime.memGetInfo()
         # Rough budget for coords, mapped coords, and sampled output.
         bytes_per_voxel = 28
-        budget = max(int(free_mem * 0.50), 1)
+        budget = max(int(free_mem * 0.75), 1)
         voxel_budget = max(budget // bytes_per_voxel, 1)
         plane = max(y_len * x_len, 1)
         z_per_chunk = max(voxel_budget // plane, 1)
@@ -460,7 +460,6 @@ class Transform:
         # mappings.  We turn this matrix of mappings into a matrix of pointers
         # from the destination image to the source image, and then use the
         # map_coordinates function to perform this mapping.
-        output = np.zeros((len(zcoords),len(ycoords),len(xcoords)), dtype=(img.dtype if labels else "float32"))
         use_gpu_image = GPU_AVAILABLE and self._has_gpu_transform()
         def _process_chunk(args):
             grid, chunk_shape, inds = args
@@ -474,8 +473,9 @@ class Transform:
         if use_gpu_image:
             try:
                 inverse_transform_gpu = self.invert()._transform_gpu
-                chunksize = _gpu_chunksize(len(ycoords), len(xcoords))
                 img_gpu = cp.asarray(img)
+                output_gpu = cp.empty((len(zcoords), len(ycoords), len(xcoords)), dtype=(img.dtype if labels else cp.float32))
+                chunksize = _gpu_chunksize(len(ycoords), len(xcoords))
                 origin_gpu = cp.asarray(origin, dtype=cp.float32)
                 plane = max(len(ycoords) * len(xcoords), 1)
                 n_z_per_chunk = max(chunksize // plane, 1)
@@ -497,12 +497,15 @@ class Transform:
                     mapped_gpu = inverse_transform_gpu(grid_gpu + origin_gpu)
                     disp_gpu = mapped_gpu.reshape(*chunk_shape, 3).transpose(3, 0, 1, 2)
                     block_gpu = cupyx_ndimage.map_coordinates(img_gpu, disp_gpu, prefilter=False, order=(0 if labels else 1))
-                    output[inds] = cp.asnumpy(block_gpu)
+                    output_gpu[inds] = block_gpu
+                output = cp.asnumpy(output_gpu)
                 return ndarray_shifted(output, origin=origin, only_if_necessary=True)
             except Exception:
                 pass
+        output = np.zeros((len(zcoords),len(ycoords),len(xcoords)), dtype=(img.dtype if labels else "float32"))
+        max_workers = min(os.cpu_count() or 1, 8)
         with threadpoolctl.threadpool_limits(limits=1): # Parallelise here, so disable parallelisation on threads
-            with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
                 for inds, block in pool.map(_process_chunk, chunker(zcoords, ycoords, xcoords, chunksize=4_000_000)):
                     output[inds] = block
         return ndarray_shifted(output, origin=origin, only_if_necessary=True) # Added -origin from origin due to TranslateParametric + Rescale on a ndarray_shifted but not sure if this is the right spot
