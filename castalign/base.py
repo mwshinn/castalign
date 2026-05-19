@@ -616,9 +616,49 @@ class AffineTransform:
     def _transform(self, points):
         return points @ self.matrix - self.shift
     def _transform_gpu(self, points):
-        _matrix_gpu = cp.asarray(self.matrix, dtype=cp.float32)
-        _shift_gpu = cp.asarray(self.shift, dtype=cp.float32)
-        return points @ _matrix_gpu - _shift_gpu
+        dtype = points.dtype if np.issubdtype(points.dtype, np.floating) else cp.float32
+        points = points.astype(dtype, copy=False)
+        matrix = np.asarray(self.matrix, dtype=np.dtype(dtype).type)
+        shift = np.asarray(self.shift, dtype=np.dtype(dtype).type)
+        cache_key = (
+            cp.cuda.Device().id,
+            np.dtype(dtype).str,
+            matrix.tobytes(),
+            shift.tobytes(),
+        )
+        cache = getattr(self, "_gpu_affine_cache", None)
+        if cache is None or cache[0] != cache_key:
+            kernel = cp.ElementwiseKernel(
+                "T z, T y, T x, "
+                "T m00, T m01, T m02, "
+                "T m10, T m11, T m12, "
+                "T m20, T m21, T m22, "
+                "T s0, T s1, T s2",
+                "T oz, T oy, T ox",
+                """
+                oz = z * m00 + y * m10 + x * m20 - s0;
+                oy = z * m01 + y * m11 + x * m21 - s1;
+                ox = z * m02 + y * m12 + x * m22 - s2;
+                """,
+                "affine_transform_points",
+            )
+            self._gpu_affine_cache = (
+                cache_key,
+                cp.asarray(matrix),
+                cp.asarray(shift),
+                kernel,
+            )
+        _, matrix_gpu, shift_gpu, kernel = self._gpu_affine_cache
+        out = cp.empty_like(points)
+        kernel(
+            points[:, 0], points[:, 1], points[:, 2],
+            matrix_gpu[0, 0], matrix_gpu[0, 1], matrix_gpu[0, 2],
+            matrix_gpu[1, 0], matrix_gpu[1, 1], matrix_gpu[1, 2],
+            matrix_gpu[2, 0], matrix_gpu[2, 1], matrix_gpu[2, 2],
+            shift_gpu[0], shift_gpu[1], shift_gpu[2],
+            out[:, 0], out[:, 1], out[:, 2],
+        )
+        return out
     def transform_image(self, image, output_size=None, labels=None, force_size=True):
         # Optimisation for the case where no image transform needs to be
         # performed.
