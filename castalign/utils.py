@@ -366,6 +366,8 @@ def _image_detect_transform(img):
         Transform code: ``1`` when skewness is high, else ``0``.
     """
     _img = img if np.prod(img.shape) < 10000000 else img[::4,::4,::4] # Hack for big images
+    if np.max(_img) == np.min(_img):
+        return 0 # None
     if scipy.stats.skew(_img.reshape(-1)) > 25:
         return 1 # Truncated log + 10
     return 0 # None
@@ -422,8 +424,11 @@ def compress_image(img, level="normal"):
         imgnorm = img.copy()
         imgnorm[imgnorm>maxplanes] = maxplanes
         imgnorm -= minplanes
-        for i in range(0, imgnorm.shape[0]):
-            imgnorm[i] = imgnorm[i]/(maxplanes-minplanes)*255
+        if maxplanes > minplanes:
+            for i in range(0, imgnorm.shape[0]):
+                imgnorm[i] = imgnorm[i]/(maxplanes-minplanes)*255
+        else:
+            imgnorm[:] = 0
         imgnorm = imgnorm.astype("uint8")
         zdim = np.argmin(imgnorm.shape) # Thin dimension may not be z
         imgnorm = imgnorm.swapaxes(zdim, 0)
@@ -451,8 +456,11 @@ def compress_image(img, level="normal"):
             minval = np.min(img[i])
             maxes.append(maxval)
             mins.append(minval)
-            im = ((np.minimum(maxval, img[i])-minval)/(maxval-minval)*255).astype("uint8")
-            imageio.v3.imwrite(pseudofile, im, format_hint=".jpeg", quality=quality)
+            if maxval > minval:
+                im = ((np.minimum(maxval, img[i])-minval)/(maxval-minval)*255).astype("uint8")
+            else:
+                im = np.zeros_like(img[i], dtype="uint8")
+            imageio.v3.imwrite(pseudofile, im, extension=".jpeg", quality=quality)
             files.append(np.frombuffer(pseudofile.getvalue(), dtype=np.uint8))
         lens = list(map(len, files))
         info = np.concatenate(list(zip(lens, maxes, mins)))
@@ -498,7 +506,7 @@ def decompress_image(data, kind):
         ims = []
         for i,l in enumerate(lens):
             pseudofile = io.BytesIO(data[ibase:(ibase+l)].tobytes())
-            im = np.asarray(imageio.v3.imread(pseudofile, format_hint=".jpeg"))
+            im = np.asarray(imageio.v3.imread(pseudofile, extension=".jpeg"))
             im = _image_decompression_transform(im/255.0*(maxes[i]-mins[i])+mins[i], int(transform_id))
             ims.append(im)
             ibase += l

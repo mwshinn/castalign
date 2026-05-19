@@ -292,6 +292,25 @@ class TestTransforms(unittest.TestCase):
         aff_no_rot_scale = AffineParametric(z=2, y=-5, x=4, zrotate=0, yrotate=0, xrotate=0, zscale=1, yscale=1, xscale=1, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
         self.assertTrue(self.close(shear.transform(p), aff_no_rot_scale.transform(p)), msg="AffineParametric with default rotate/scale should match explicit identity rotate/scale")
 
+    def test_matrixparametric_general_inverse(self):
+        t = MatrixParametric(
+            a11=1.02,
+            a12=0.02,
+            a13=-0.01,
+            a21=-0.03,
+            a22=0.98,
+            a23=0.02,
+            a31=0.01,
+            a32=-0.02,
+            a33=1.04,
+            z=1.0,
+            y=-2.0,
+            x=3.0,
+        )
+        inv = t.invert()
+        self.assertTrue(self.close(inv.transform(t.transform(self.new_points_big)), self.new_points_big))
+        self.assertTrue(self.close(t.transform(inv.transform(self.new_points_big)), self.new_points_big))
+
 
 class TestSpotTransforms(unittest.TestCase):
     @classmethod
@@ -665,6 +684,19 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(sorted(g.nodes), sorted(nodes))
         np.testing.assert_array_equal(g.get_image("A"), self._create_sample_image(50))
 
+    def test_06b_constant_plane_jpeg_compression(self):
+        img = np.stack(
+            [
+                np.full((8, 9), 3.0, dtype=np.float32),
+                np.arange(72, dtype=np.float32).reshape(8, 9),
+            ]
+        )
+        data, info = utils.compress_image(img, level="normal")
+        out = utils.decompress_image(data, info)
+
+        self.assertEqual(out.shape, img.shape)
+        np.testing.assert_allclose(out[0], img[0], atol=1e-6, rtol=1e-6)
+
     def test_07_get_transform(self):
         """Test pathfinding for transforms."""
         g = Graph("PathTest")
@@ -817,6 +849,81 @@ class TestGPUAcceleration(unittest.TestCase):
         origin_gpu = out_gpu.origin if hasattr(out_gpu, "origin") else np.asarray([0, 0, 0])
         origin_cpu = out_cpu.origin if hasattr(out_cpu, "origin") else np.asarray([0, 0, 0])
         np.testing.assert_allclose(origin_gpu, origin_cpu, atol=1e-6, rtol=1e-6)
+
+    def test_laminar_triangulation_gpu_matches_cpu(self):
+        import scipy.spatial
+
+        rng = np.random.RandomState(0)
+        points_pre = rng.randn(80, 3).astype(np.float64) * [0.08, 8, 8] + [4, 50, 50]
+        points_post = points_pre.copy()
+        points_post[:, 0] += 0.04 * rng.randn(80)
+        points_post[:, 1] += 2.0 * np.sin(points_pre[:, 2] / 12.0) + 0.5 * rng.randn(80)
+        points_post[:, 2] += 2.0 * np.cos(points_pre[:, 1] / 12.0) + 0.5 * rng.randn(80)
+
+        for invert in (False, True):
+            t = ca.LaminarTriangulation(points_pre, points_post, invert=invert)
+            tri_pointsB = (t.all_points_start if not invert else t.all_points_end) @ t.B
+            simplices = scipy.spatial.Delaunay(tri_pointsB).simplices.astype(np.int32)
+            real_simplices = simplices[np.all(simplices < len(t.points_start), axis=1)]
+            if len(real_simplices) > 0:
+                simplices_for_real_queries = real_simplices
+            else:
+                simplices_for_real_queries = simplices
+
+            query_parts = [points_pre[:20]]
+            for source_simplices in (simplices_for_real_queries, simplices):
+                chosen = rng.randint(0, len(source_simplices), size=150)
+                weights = rng.random((len(chosen), 3)) + 0.05
+                weights /= weights.sum(axis=1, keepdims=True)
+                query_parts.append(
+                    np.sum(t.all_points_start[source_simplices[chosen]] * weights[:, :, None], axis=1)
+                )
+
+            for dtype in (np.float32, np.float64):
+                query = np.concatenate(query_parts, axis=0).astype(dtype)
+                out_gpu = t.transform(self.cp.asarray(query))
+
+                old_gpu_available = self.base.GPU_AVAILABLE
+                try:
+                    self.base.GPU_AVAILABLE = False
+                    out_cpu = t.transform(query)
+                finally:
+                    self.base.GPU_AVAILABLE = old_gpu_available
+
+                self.assertIsInstance(out_gpu, self.cp.ndarray)
+                self.assertEqual(out_gpu.dtype, self.cp.asarray(query).dtype)
+                tol = 1e-3 if dtype is np.float32 else 1e-7
+                np.testing.assert_allclose(self.cp.asnumpy(out_gpu), out_cpu, atol=tol, rtol=tol)
+
+    def test_laminar_triangulation_gpu_matches_cpu_for_images_and_compositions(self):
+        rng = np.random.RandomState(1)
+        shape = (8, 34, 36)
+        points_pre = rng.randn(70, 3).astype(np.float64) * [0.08, 5, 5] + [4, 17, 18]
+        points_post = points_pre.copy()
+        points_post[:, 0] += 0.03 * rng.randn(70)
+        points_post[:, 1] += 1.5 * np.sin(points_pre[:, 2] / 7.0) + 0.3 * rng.randn(70)
+        points_post[:, 2] += 1.5 * np.cos(points_pre[:, 1] / 7.0) + 0.3 * rng.randn(70)
+        image = rng.random(shape).astype(np.float32)
+
+        for t in [
+            ca.LaminarTriangulation(points_pre, points_post, invert=True),
+            ca.LaminarTriangulation(points_pre, points_post, invert=True)
+            + ca.LaminarTriangulation(points_pre, points_post, invert=True),
+        ]:
+            self.assertTrue(t._has_gpu_transform())
+            out_gpu = t.transform_image(image, output_size=shape, labels=False)
+
+            old_gpu_available = self.base.GPU_AVAILABLE
+            try:
+                self.base.GPU_AVAILABLE = False
+                out_cpu = t.transform_image(image, output_size=shape, labels=False)
+            finally:
+                self.base.GPU_AVAILABLE = old_gpu_available
+
+            np.testing.assert_allclose(np.asarray(out_gpu), np.asarray(out_cpu), atol=1e-3, rtol=1e-3)
+            origin_gpu = out_gpu.origin if hasattr(out_gpu, "origin") else np.asarray([0, 0, 0])
+            origin_cpu = out_cpu.origin if hasattr(out_cpu, "origin") else np.asarray([0, 0, 0])
+            np.testing.assert_allclose(origin_gpu, origin_cpu, atol=1e-6, rtol=1e-6)
 
 
 if __name__ == "__main__":

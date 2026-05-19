@@ -854,9 +854,9 @@ class MatrixParametric(AffineTransform,Transform):
         self.matrix = np.asarray([[p(11), p(12), p(13)], [p(21), p(22), p(23)], [p(31), p(32), p(33)]])
         self.shift = np.asarray([-self.params["z"], -self.params["y"], -self.params["x"]])
     def invert(self):
-        p = lambda num : self.params[f"a{num}"]
-        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ self.matrix.T
-        return self.__class__(a11=p(11), a12=p(21), a13=p(31), a21=p(12), a22=p(22), a23=p(32), a31=p(13), a32=p(23), a33=p(33), z=-newzyx[0], y=-newzyx[1], x=-newzyx[2])
+        inv_matrix = np.linalg.inv(self.matrix)
+        newzyx = [self.params["z"], self.params["y"], self.params["x"]] @ inv_matrix
+        return self.__class__(a11=inv_matrix[0,0], a12=inv_matrix[0,1], a13=inv_matrix[0,2], a21=inv_matrix[1,0], a22=inv_matrix[1,1], a23=inv_matrix[1,2], a31=inv_matrix[2,0], a32=inv_matrix[2,1], a33=inv_matrix[2,2], z=-newzyx[0], y=-newzyx[1], x=-newzyx[2])
 
 class LaminarAffine(AffineTransform,PointTransform):
     """Laminar affine fit for section-like data.
@@ -1084,6 +1084,7 @@ class LaminarTriangulation(PointTransform):
             self.pseudopoints_end = self.pseudopoints_start + hull_points_vecs
         self.all_points_start = np.concatenate([self.points_start, self.pseudopoints_start])
         self.all_points_end = np.concatenate([self.points_end, self.pseudopoints_end])
+        self._gpu_cache = None
     def _transform(self, points):
         # Project all points into the basis defined in _fit.  This is indicated
         # by "B" suffix.  Then perform the triangulation in that 2-dimensional
@@ -1129,6 +1130,88 @@ class LaminarTriangulation(PointTransform):
                 newpoints[insimp==i] = np.concatenate([points[insimp==i], np.ones(np.sum(insimp==i))[:,None]], axis=1) @ params
             assert not np.any(np.isnan(newpoints)), "Not sure why this should ever happen?"
             return newpoints
+    def _transform_gpu(self, points):
+        output_dtype = points.dtype if np.issubdtype(points.dtype, np.floating) else cp.float64
+        points = points.astype(cp.float64, copy=False)
+        if self._gpu_cache is None:
+            start = self.all_points_start.astype(np.float64)
+            end = self.all_points_end.astype(np.float64)
+            B = self.B.astype(np.float64)
+            normal = self.normal.astype(np.float64)
+            tri_pointsB = (self.all_points_start if not self.params["invert"] else self.all_points_end) @ self.B
+            delaunay = scipy.spatial.Delaunay(tri_pointsB)
+            assert np.all(delaunay.points == tri_pointsB), "Coplannar points"
+            simplices = delaunay.simplices.astype(np.int32)
+            startB = start @ B
+            triB = startB[simplices]
+            origins = np.ascontiguousarray(triB[:, 0, :], dtype=np.float64)
+            basis = np.stack([triB[:, 1, :] - triB[:, 0, :], triB[:, 2, :] - triB[:, 0, :]], axis=2)
+            inv_basis = np.ascontiguousarray(np.linalg.inv(basis), dtype=np.float64)
+            affine = np.empty((len(simplices), 4, 3), dtype=np.float64)
+            for i,simp in enumerate(simplices):
+                _start = np.concatenate([start[simp], start[[simp[0]]]+normal], axis=0)
+                _end = np.concatenate([end[simp], end[[simp[0]]]+normal], axis=0)
+                coefs_rhs = np.concatenate([_start, np.ones((len(simp)+1, 1), dtype=np.float64)], axis=1)
+                affine[i] = np.linalg.inv(coefs_rhs) @ _end
+            kernel = cp.RawKernel(r'''
+            extern "C" __global__
+            void laminar_transform(
+                const double* points,
+                const double* pointsB,
+                const double* origins,
+                const double* inv_basis,
+                const double* affine,
+                double* out,
+                const int n_points,
+                const int n_simplices,
+                const double tol
+            ) {
+                int i = blockDim.x * blockIdx.x + threadIdx.x;
+                if (i >= n_points) return;
+                double p0 = pointsB[i * 2 + 0];
+                double p1 = pointsB[i * 2 + 1];
+                int found = -1;
+                for (int s = 0; s < n_simplices; ++s) {
+                    int o = s * 2;
+                    int m = s * 4;
+                    double d0 = p0 - origins[o + 0];
+                    double d1 = p1 - origins[o + 1];
+                    double u = inv_basis[m + 0] * d0 + inv_basis[m + 1] * d1;
+                    double v = inv_basis[m + 2] * d0 + inv_basis[m + 3] * d1;
+                    if (u >= -tol && v >= -tol && u + v <= 1.0 + tol) {
+                        found = s;
+                    }
+                }
+                if (found < 0) {
+                    double missing = 0.0 / 0.0;
+                    out[i * 3 + 0] = missing;
+                    out[i * 3 + 1] = missing;
+                    out[i * 3 + 2] = missing;
+                    return;
+                }
+                double z = points[i * 3 + 0];
+                double y = points[i * 3 + 1];
+                double x = points[i * 3 + 2];
+                int a = found * 12;
+                out[i * 3 + 0] = z * affine[a + 0] + y * affine[a + 3] + x * affine[a + 6] + affine[a + 9];
+                out[i * 3 + 1] = z * affine[a + 1] + y * affine[a + 4] + x * affine[a + 7] + affine[a + 10];
+                out[i * 3 + 2] = z * affine[a + 2] + y * affine[a + 5] + x * affine[a + 8] + affine[a + 11];
+            }
+            ''', "laminar_transform")
+            self._gpu_cache = (cp.asarray(B), cp.asarray(origins), cp.asarray(inv_basis), cp.asarray(affine), kernel)
+        B, origins, inv_basis, affine, kernel = self._gpu_cache
+        pointsB = points @ B
+        out = cp.empty_like(points)
+        threads = 256
+        blocks = (points.shape[0] + threads - 1) // threads
+        kernel(
+            (blocks,),
+            (threads,),
+            (points, pointsB, origins, inv_basis, affine, out, np.int32(points.shape[0]), np.int32(origins.shape[0]), np.float64(1e-12)),
+        )
+        if bool(cp.any(cp.isnan(out))):
+            raise AssertionError("Point was outside of simplex or invalid input points")
+        return out.astype(output_dtype, copy=False)
     def invert(self):
         return self.__class__(invert=(not self.params["invert"]), points_start=self.points_end, points_end=self.points_start, normal_z=self.params["normal_z"], normal_y=self.params["normal_y"], normal_x=self.params["normal_x"])
 
@@ -1225,6 +1308,10 @@ def compose_transforms(a, b):
                     super().__init__(**extra_args, **self.b.params)
                 def _transform(self, points):
                     return self.b.transform(a.transform(points))
+                def _transform_gpu(self, points):
+                    return self.b._transform_gpu(a._transform_gpu(points))
+                def _has_gpu_transform(self):
+                    return GPU_AVAILABLE and a._has_gpu_transform() and self.b._has_gpu_transform()
                 def inverse_transform(self, points):
                     return a.inverse_transform(self.b.inverse_transform(points))
                 def invert(self):
