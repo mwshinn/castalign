@@ -25,7 +25,7 @@ setup(
         'Documentation': 'https://castalign.readthedocs.io/en/latest/',
     },
     packages = ['castalign'],
-    install_requires = ["numpy", "scipy", "napari", "magicgui", "scikit-image", "imageio", "imageio-ffmpeg", "threadpoolctl", "pyqt5"],
+    install_requires = ["numpy", "scipy", "napari", "magicgui", "scikit-image", "imageio", "imageio-ffmpeg", "threadpoolctl", "pyqt6"],
     classifiers = [
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Bio-Informatics",
