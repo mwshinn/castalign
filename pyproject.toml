@@ -71,7 +71,15 @@ exclude = ["tests*", "docs*"]
 [tool.setuptools_scm]
 
 [tool.pytest.ini_options]
-addopts = "--cov=castalign"
+# `-p no:napari`: napari registers a pytest plugin (entry point `pytest11`)
+# whose autouse fixture imports napari._qt before every test. That import
+# currently emits a pydantic deprecation warning from inside napari, which
+# `filterwarnings = ["error"]` turns into a setup error on every test.
+# castalign's tests don't use napari's fixtures, so the plugin is disabled.
+# This should be revisited in the future if GUI tests needing napari fixtures
+# (e.g. make_napari_viewer) are added. In that case, one option could be to 
+# remove this flag and instead ignore the specific warning(s).
+addopts = "--cov=castalign -p no:napari"
 filterwarnings = [
     "error",
 ]
