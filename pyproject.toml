@@ -1,0 +1,71 @@
+[project]
+name = "castalign"
+authors = [{name = "Max Shinn", email = "m.shinn@ucl.ac.uk"}]
+maintainers = [{name = "Max Shinn", email = "m.shinn@ucl.ac.uk"}]
+description = "Coppafish, Antibody Staining, and Two-photon alignment: 3D alignment framework for microscopy and in vivo imaging"
+readme = "README.md"
+requires-python = ">=3.11.0"
+dynamic = ["version"]
+
+dependencies = [
+  "numpy",
+  "scipy",
+  "napari",
+  "magicgui",
+  "scikit-image",
+  "imageio",
+  "imageio-ffmpeg",
+  "threadpoolctl",
+  "pyqt6",
+]
+
+license = "MIT"
+license-files = ["LICENSE"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Multimedia :: Graphics",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mwshinn/castalign"
+"Documentation" = "https://castalign.readthedocs.io/en/latest/"
+"Publication" = "https://doi.org/10.64898/2026.05.15.725413"
+"Bug Tracker" = "https://github.com/mwshinn/castalign/issues"
+"Source Code" = "https://github.com/mwshinn/castalign"
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "coverage",
+  "tox",
+  "mypy",
+  "pre-commit",
+  "ruff",
+  "setuptools-scm",
+]
+
+[build-system]
+requires = [
+    "setuptools>=77",
+    "wheel",
+    "setuptools-scm[toml]>=8",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["castalign*"]
+exclude = ["tests*", "docs*"]
+
+[tool.setuptools_scm]
