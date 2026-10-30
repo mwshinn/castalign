@@ -41,7 +41,7 @@ classifiers = [
 "Bug Tracker" = "https://github.com/mwshinn/castalign/issues"
 "Source Code" = "https://github.com/mwshinn/castalign"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest",
   "pytest-cov",
