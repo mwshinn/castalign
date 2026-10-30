@@ -569,4 +569,4 @@ def invert_transform_numerical(tform, points):
         pass
     if points.ndim == 2:
         return np.asarray([invert_transform_numerical(tform, points[i]) for i in range(0, points.shape[0])])
-    return invert_function_numerical(tform.transform, np.asarray([x]))
+    return invert_function_numerical(tform.transform, np.asarray(points))

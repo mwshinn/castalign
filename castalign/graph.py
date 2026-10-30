@@ -122,7 +122,7 @@ class Graph:
             return self.add_node(name, image=value)
         if isinstance(name, slice) and isinstance(name.start, str) and isinstance(name.stop, str) and name.step is None:
             return self.add_edge(name.start, name.stop, value)
-        raise ValueError(f"A graph cannot assign the item '{item}'")
+        raise ValueError(f"A graph cannot assign the item '{name}'")
     def __delitem__(self, name):
         """Delete a node or edge using indexing syntax.
 

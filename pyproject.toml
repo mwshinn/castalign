@@ -120,7 +120,6 @@ lint.ignore = [
   "E701",  # multiple statements on one line (5)
   "E722",  # bare except (4)
   "F841",  # unused local variable (8)
-  "F811",  # redefinition of unused name (1): `invert` in castalign/base.py
 ]
 fix = true
 # These rules all pertain to imports and are ignored on a per-file basis.

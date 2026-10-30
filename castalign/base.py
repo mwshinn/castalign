@@ -1358,8 +1358,6 @@ def compose_transforms(a, b):
                     return GPU_AVAILABLE and a._has_gpu_transform() and self.b._has_gpu_transform()
                 def inverse_transform(self, points):
                     return a.inverse_transform(self.b.inverse_transform(points))
-                def invert(self):
-                    raise NotImplementedError
                 def __repr__(self):
                     return repr(a) + " + " + repr(self.b)
                 def invert(self):
