@@ -84,3 +84,21 @@ addopts = "--cov=castalign -p no:napari -p no:npe2"
 filterwarnings = [
     "error",
 ]
+
+[tool.tox]
+requires = ["tox>=4.22", "tox-gh-actions"]
+env_list = ["py311", "py312", "py313"]
+
+[tool.tox.gh-actions]
+python = """
+    3.11: py311
+    3.12: py312
+    3.13: py313
+"""
+
+[tool.tox.env_run_base]
+pass_env = ["CI", "GITHUB_ACTIONS"]
+dependency_groups = ["dev"]
+commands = [
+    ["pytest", "-v", "--color=yes", "--cov=castalign", "--cov-report=xml"],
+]
