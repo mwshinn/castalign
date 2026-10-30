@@ -18,7 +18,7 @@ There are three main components:
    composing different transforms together.
 3. **<a href="api_graphs.html">Graphs</a> to manage networks of transforms**.  In many practical applications,
    you may need to align many different images to the same target image, or
-   other complex relationships between images.  It can quickly become unwieldly
+   other complex relationships between images.  It can quickly become unwieldy
    to organise all of these transforms and their corresponding images.  <a href="api_graphs.html">Graphs</a>
    make it easy to keep everything organised.  Several convenience methods are
    included for aligning within a graph.
