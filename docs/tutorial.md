@@ -81,8 +81,8 @@ composed, but their composition gives an unspecified transform.  Currently, the
 unspecified Transform must be the final term in the sum.  Two unspecified
 transforms cannot be composed.
 
-**Transforms are lossless.**  If you compose 
-``RescaleParametric(x=.5, y=.5, z=.5) + RescaleParametric(x=2, y=2, z=2)`` 
+**Transforms are lossless.**  If you compose
+``RescaleParametric(x=.5, y=.5, z=.5) + RescaleParametric(x=2, y=2, z=2)``
 and apply it to an image, the result will be identical
 to your starting image, without the artifacts from resizing the image.  More
 generally, under the hood, a long chain of composed transforms will all be
@@ -246,10 +246,10 @@ import skimage
 fixed = skimage.data.cells3d()[:, 0]
 movable = skimage.transform.resize(fixed[3:,5:,:-2], (60, 240, 250))
 
-# Now import CASTalign.  We need to iImport the GUI separately, 
+# Now import CASTalign.  We need to iImport the GUI separately,
 # since CASTalign can be used on computers without GUIs.
 import castalign as ca
-import castalign.gui 
+import castalign.gui
 
 t = ca.gui.align_interactive(movable, fixed)
 

@@ -1,6 +1,7 @@
-from PIL import Image, ImageDraw, ImageFont
 import math
 from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT_DIR / "docs" / "_static" / "transforms"

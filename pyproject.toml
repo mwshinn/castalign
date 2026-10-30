@@ -104,7 +104,7 @@ commands = [
 ]
 
 [tool.ruff]
-line-length = 79
+line-length = 120
 exclude = ["__init__.py", "build", ".eggs"]
 lint.select = [
   "E",   # pycodestyle errors
@@ -131,9 +131,11 @@ fix = true
 "castalign/base.py" = ["F401"]   # imported names are re-exported by `from .base import *`
 
 [tool.ruff.format]
-docstring-code-format = true # Also format code in docstrings (e.g. examples)
+# Leave code examples in docstrings and docs as written
+docstring-code-format = false
+exclude = ["*.md", "docs/scripts/*"]
 
-# mypy runs at default strictness. 
+# mypy runs at default strictness.
 # The pre-commit hook passes --ignore-missing-imports; adding similar here
 # makes a local `mypy` run follow suit.
 [[tool.mypy.overrides]]
