@@ -81,8 +81,8 @@ composed, but their composition gives an unspecified transform.  Currently, the
 unspecified Transform must be the final term in the sum.  Two unspecified
 transforms cannot be composed.
 
-**Transforms are lossless.**  If you compose 
-``RescaleParametric(x=.5, y=.5, z=.5) + RescaleParametric(x=2, y=2, z=2)`` 
+**Transforms are lossless.**  If you compose
+``RescaleParametric(x=.5, y=.5, z=.5) + RescaleParametric(x=2, y=2, z=2)``
 and apply it to an image, the result will be identical
 to your starting image, without the artifacts from resizing the image.  More
 generally, under the hood, a long chain of composed transforms will all be
@@ -164,8 +164,8 @@ like a function: if the input looks like points, it uses
 <a href="api_transforms.html#castalign.base.Transform.transform_image"><code>transform_image()</code></a>.
 
 ```python
-p_out = t([10, 20, 30])        # Same as t.transform([10, 20, 30])
-img_out = t(img1)              # Same as t.transform_image(img1)
+p_out = t([10, 20, 30])  # Same as t.transform([10, 20, 30])
+img_out = t(img1)  # Same as t.transform_image(img1)
 ```
 
 ### Examples
@@ -180,7 +180,9 @@ import castalign as ca
 # Example 1
 t1 = ca.TranslateParametric(x=3, y=4, z=5)
 assert np.all(t1.transform([10, 20, 30]) == [15, 24, 33])
-assert np.all(t1.transform([[10, 20, 30], [40, 50, 60]]) == [[15, 24, 33], [45, 54, 63]])
+assert np.all(
+    t1.transform([[10, 20, 30], [40, 50, 60]]) == [[15, 24, 33], [45, 54, 63]]
+)
 
 # Example 2
 t2 = ca.TranslateParametric(z=1, y=1, x=1)
@@ -197,18 +199,23 @@ To transform an image, e.g., applying a rotation and a translation:
 ``` python
 # Load example data
 from skimage.data import cells3d
-im = cells3d()[:,1]
+
+im = cells3d()[:, 1]
 
 # Define the Transform and apply it to the image
 import castalign as ca
+
 t = ca.RigidParametric(zrotate=30, x=60)
 im_rotate = t.transform_image(im)
 
 # Visualise the result
 import napari
+
 v = napari.Viewer()
 v.add_image(im, blending="additive", colormap="Green")
-v.add_image(im_rotate, translate=im_rotate.origin, blending="additive", colormap="Red")
+v.add_image(
+    im_rotate, translate=im_rotate.origin, blending="additive", colormap="Red"
+)
 ```
 
 We will show examples of point-based transforms once we explore the GUI.
@@ -243,13 +250,14 @@ see how we align two volumetric images.
 ```python
 # First create some dummy data for us to align
 import skimage
-fixed = skimage.data.cells3d()[:, 0]
-movable = skimage.transform.resize(fixed[3:,5:,:-2], (60, 240, 250))
 
-# Now import CASTalign.  We need to iImport the GUI separately, 
+fixed = skimage.data.cells3d()[:, 0]
+movable = skimage.transform.resize(fixed[3:, 5:, :-2], (60, 240, 250))
+
+# Now import CASTalign.  We need to iImport the GUI separately,
 # since CASTalign can be used on computers without GUIs.
 import castalign as ca
-import castalign.gui 
+import castalign.gui
 
 t = ca.gui.align_interactive(movable, fixed)
 
@@ -386,15 +394,15 @@ Graphs also support shorthand indexing, which is equivalent to the explicit
 methods above:
 
 ```python
-g["img1"] = img1                # Same as g.add_node("img1", image=img1)
-g["img1":"img2"] = t            # Same as g.add_edge("img1", "img2", t)
+g["img1"] = img1  # Same as g.add_node("img1", image=img1)
+g["img1":"img2"] = t  # Same as g.add_edge("img1", "img2", t)
 
-img1_loaded = g["img1"]         # Same as g.get_image("img1")
-t_img12 = g["img1":"img2"]      # Same as g.get_transform("img1", "img2")
+img1_loaded = g["img1"]  # Same as g.get_image("img1")
+t_img12 = g["img1":"img2"]  # Same as g.get_transform("img1", "img2")
 
-"img1" in g                     # Node existence check
-("img1", "img2") in g           # Edge existence check
-del g["img1":"img2"]            # Same as g.remove_edge("img1", "img2")
+"img1" in g  # Node existence check
+("img1", "img2") in g  # Edge existence check
+del g["img1":"img2"]  # Same as g.remove_edge("img1", "img2")
 ```
 
 ### Example workflow with three images
@@ -403,7 +411,7 @@ Suppose from the previous section you already have ``fixed``, ``movable``, and
 a transform ``t`` returned by <a href="api_gui.html#castalign.gui.align_interactive"><code>align_interactive(movable, fixed)</code></a>.
 
 ```python
-img3 = img2[:,10:,:-15] # Simple translation of img2
+img3 = img2[:, 10:, :-15]  # Simple translation of img2
 
 g = ca.Graph()
 g["img1"] = movable

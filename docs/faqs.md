@@ -15,7 +15,9 @@ in <a href="api_gui.html#castalign.gui.alignment_gui"><code>alignment_gui(..., c
 For example,
 
 ```python
-t = ca.gui.alignment_gui(movable, base, transform=ca.RigidParametric, crop=True)
+t = ca.gui.alignment_gui(
+    movable, base, transform=ca.RigidParametric, crop=True
+)
 ```
 
 `crop` only affects preview/render speed and memory use; the resulting

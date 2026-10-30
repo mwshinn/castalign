@@ -133,7 +133,7 @@ fix = true
 [tool.ruff.format]
 docstring-code-format = true # Also format code in docstrings (e.g. examples)
 
-# mypy runs at default strictness. 
+# mypy runs at default strictness.
 # The pre-commit hook passes --ignore-missing-imports; adding similar here
 # makes a local `mypy` run follow suit.
 [[tool.mypy.overrides]]
