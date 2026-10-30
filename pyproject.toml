@@ -41,7 +41,7 @@ classifiers = [
 "Bug Tracker" = "https://github.com/mwshinn/castalign/issues"
 "Source Code" = "https://github.com/mwshinn/castalign"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
   "pytest",
   "pytest-cov",
@@ -69,3 +69,18 @@ include = ["castalign*"]
 exclude = ["tests*", "docs*"]
 
 [tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+# `-p no:napari -p no:npe2`: napari and npe2 (a napari dependency) each
+# register their own pytest plugin, and both trigger pydantic deprecation
+# warnings from inside those packages: napari's from an autouse fixture before
+# every test, npe2's when pytest imports the plugin (pytest>=9.2 filters
+# warnings at that stage too; pytest#12697). The "error" filter below turns
+# these into errors. castalign's tests use neither plugin's fixtures, so both
+# are disabled. If GUI tests needing napari fixtures (e.g. make_napari_viewer)
+# are added and napari still hasn't updated their deprecated code, these flags
+# should be removed and the specific warning should be ignored instead.
+addopts = "--cov=castalign -p no:napari -p no:npe2"
+filterwarnings = [
+    "error",
+]
