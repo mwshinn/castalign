@@ -1,6 +1,7 @@
-from PIL import Image, ImageDraw, ImageFont
 import math
 from pathlib import Path
+
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT_DIR / "docs" / "_static" / "transforms"
@@ -16,8 +17,12 @@ AFTER_FILL = (255, 198, 170)
 AFTER_WARP_FILL = (225, 210, 255)
 MARK = (255, 110, 90)
 
-FONT_SMALL = ImageFont.truetype('/usr/share/fonts/opentype/urw-base35/NimbusSans-Regular.otf', 13)
-FONT_BOLD = ImageFont.truetype('/usr/share/fonts/opentype/urw-base35/NimbusSans-Bold.otf', 15)
+FONT_SMALL = ImageFont.truetype(
+    "/usr/share/fonts/opentype/urw-base35/NimbusSans-Regular.otf", 13
+)
+FONT_BOLD = ImageFont.truetype(
+    "/usr/share/fonts/opentype/urw-base35/NimbusSans-Bold.otf", 15
+)
 
 TRANSFORMS = [
     ("Identity", "identity"),
@@ -101,7 +106,9 @@ def poly_transform(points, kind):
         out = []
         for x, y in pts:
             dx, dy = x - cx, y - cy
-            wobble = 13 * math.sin((x + 2 * y) / 18) + 8 * math.cos((2 * x - y) / 24)
+            wobble = 13 * math.sin((x + 2 * y) / 18) + 8 * math.cos(
+                (2 * x - y) / 24
+            )
             nx = x + 0.26 * dy + wobble * 0.34
             ny = y - 0.18 * dx + wobble * 0.2
             if kind == "gaussian":
@@ -163,7 +170,15 @@ def build_complex_shape():
 
 
 def build_direction_marker():
-    return [(-30, -5), (12, -5), (12, -15), (38, 0), (12, 15), (12, 5), (-30, 5)]
+    return [
+        (-30, -5),
+        (12, -5),
+        (12, -15),
+        (38, 0),
+        (12, 15),
+        (12, 5),
+        (-30, 5),
+    ]
 
 
 def draw_scene(kind, name):
@@ -173,7 +188,9 @@ def draw_scene(kind, name):
     left = (16, 38, 176, 184)
     right = (214, 38, 374, 184)
     for box in (left, right):
-        d.rounded_rectangle(box, radius=11, fill=PANEL, outline=OUTLINE, width=3)
+        d.rounded_rectangle(
+            box, radius=11, fill=PANEL, outline=OUTLINE, width=3
+        )
         draw_grid(d, (box[0] + 6, box[1] + 6, box[2] - 6, box[3] - 6))
 
     # Middle arrow with head clearly ahead of shaft
@@ -206,7 +223,11 @@ def draw_scene(kind, name):
         after = shift_points(after, 26, -20)
         after_marker = shift_points(after_marker, 26, -20)
 
-    fill = AFTER_WARP_FILL if kind in ("triangulation", "gaussian") else AFTER_FILL
+    fill = (
+        AFTER_WARP_FILL
+        if kind in ("triangulation", "gaussian")
+        else AFTER_FILL
+    )
     d.polygon(ixy(after), fill=fill, outline=OUTLINE, width=3)
     d.polygon(ixy(after_marker), fill=MARK, outline=OUTLINE, width=2)
     d.text((260, 45), "after", fill=OUTLINE, font=FONT_SMALL)
@@ -224,7 +245,13 @@ def draw_scene(kind, name):
     elif kind == "translate":
         d.text((232, 170), "shift", fill=PURPLE, font=FONT_SMALL)
 
-    d.rounded_rectangle((14, 8, 376, 32), radius=10, fill=(255, 255, 255), outline=OUTLINE, width=2)
+    d.rounded_rectangle(
+        (14, 8, 376, 32),
+        radius=10,
+        fill=(255, 255, 255),
+        outline=OUTLINE,
+        width=2,
+    )
     d.text((22, 13), name, fill=OUTLINE, font=FONT_BOLD)
     return img
 

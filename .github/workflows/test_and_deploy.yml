@@ -9,7 +9,13 @@ on:
   pull_request:
 
 jobs:
+  linting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: neuroinformatics-unit/actions/lint@v2
+
   test:
+    needs: [linting]
     name: ubuntu-latest py${{ matrix.python-version }}
     runs-on: ubuntu-latest
     strategy:

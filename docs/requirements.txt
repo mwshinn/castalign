@@ -1,10 +1,10 @@
-sphinx
-sphinx-rtd-theme
-myst-parser
-numpy
-scipy
-scikit-image
 imageio
 imageio-ffmpeg
-threadpoolctl
+myst-parser
+numpy
 Pillow
+scikit-image
+scipy
+sphinx
+sphinx-rtd-theme
+threadpoolctl

@@ -86,13 +86,23 @@ def _legacy_shear_parametric_factory(base_globals):
 
 def get_legacy_eval_namespace(base_globals):
     return {
-        "_legacy_trr2d_parametric": _legacy_trr2d_parametric_factory(base_globals),
-        "_legacy_shear_parametric": _legacy_shear_parametric_factory(base_globals),
+        "_legacy_trr2d_parametric": _legacy_trr2d_parametric_factory(
+            base_globals
+        ),
+        "_legacy_shear_parametric": _legacy_shear_parametric_factory(
+            base_globals
+        ),
     }
 
 
 def apply_legacy_class_remappings(text):
     remapped = text
-    for old, new in sorted(LEGACY_CLASS_NAME_REMAPPINGS.items(), key=lambda kv: -len(kv[0])):
-        remapped = re.sub(rf"(?<![A-Za-z0-9_]){re.escape(old)}(?![A-Za-z0-9_])", new, remapped)
+    for old, new in sorted(
+        LEGACY_CLASS_NAME_REMAPPINGS.items(), key=lambda kv: -len(kv[0])
+    ):
+        remapped = re.sub(
+            rf"(?<![A-Za-z0-9_]){re.escape(old)}(?![A-Za-z0-9_])",
+            new,
+            remapped,
+        )
     return remapped
