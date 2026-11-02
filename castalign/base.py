@@ -1,3 +1,4 @@
+from typing import Any
 import os
 from .compat import CURRENT_FILE_FORMAT_VERSION, apply_legacy_class_remappings, get_legacy_eval_namespace
 import concurrent.futures
@@ -77,8 +78,8 @@ class Transform:
     NAME = ""
     SHORTCUT_KEY = ""
     SORT_WEIGHT = 0 # How to sort when listing all transforms
-    DEFAULT_PARAMETERS = {}
-    GUI_DRAG_PARAMETERS = [None, None, None]
+    DEFAULT_PARAMETERS: dict[str, Any] = {}
+    GUI_DRAG_PARAMETERS: list[str | None] = [None, None, None]
     def __init__(self, **kwargs):
         # Initialise parameters to either pass values or defaults
         self.params = {}
@@ -1357,8 +1358,6 @@ def compose_transforms(a, b):
                     return GPU_AVAILABLE and a._has_gpu_transform() and self.b._has_gpu_transform()
                 def inverse_transform(self, points):
                     return a.inverse_transform(self.b.inverse_transform(points))
-                def invert(self):
-                    raise NotImplementedError
                 def __repr__(self):
                     return repr(a) + " + " + repr(self.b)
                 def invert(self):

@@ -27,7 +27,7 @@ class Graph:
         # NOTE: If you change the constructor or internal data structure, you also need to change the load and save methods.
         self.name = name
         self.nodes = [] # List of node names
-        self.edges = {} # Dictionary of dictonaries, edges[node1][node2] = transform
+        self.edges = {} # Dictionary of dictionaries, edges[node1][node2] = transform
         
         # node_images is a cache. It can contain:
         # - an ndarray if the image is loaded.
@@ -122,7 +122,7 @@ class Graph:
             return self.add_node(name, image=value)
         if isinstance(name, slice) and isinstance(name.start, str) and isinstance(name.stop, str) and name.step is None:
             return self.add_edge(name.start, name.stop, value)
-        raise ValueError(f"A graph cannot assign the item '{item}'")
+        raise ValueError(f"A graph cannot assign the item '{name}'")
     def __delitem__(self, name):
         """Delete a node or edge using indexing syntax.
 

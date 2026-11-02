@@ -102,3 +102,56 @@ dependency_groups = ["dev"]
 commands = [
     ["pytest", "-v", "--color=yes", "--cov=castalign", "--cov-report=xml"],
 ]
+
+[tool.ruff]
+line-length = 79
+exclude = ["__init__.py", "build", ".eggs"]
+lint.select = [
+  "E",   # pycodestyle errors
+  "F",   # Pyflakes
+  "I",   # isort
+]
+# The following rules flagged existing castalign code (at 9d389cff) and need
+# human judgement to fix. Ignore them for now but fix them in time.
+lint.ignore = [
+  "E501",  # line too long (508 hits)
+  "E731",  # lambda assignment (13)
+  "E741",  # ambiguous variable name (8)
+  "E701",  # multiple statements on one line (5)
+  "E722",  # bare except (4)
+  "F841",  # unused local variable (8)
+]
+fix = true
+# These rules all pertain to imports and are ignored on a per-file basis.
+# F401: unused-import
+# F403: undefined-local-with-import-star
+# F405: undefined-local-with-import-star-usage
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F403", "F405"]    # tests use `from castalign import *`
+"castalign/base.py" = ["F401"]   # imported names are re-exported by `from .base import *`
+
+[tool.ruff.format]
+docstring-code-format = true # Also format code in docstrings (e.g. examples)
+
+# mypy runs at default strictness. 
+# The pre-commit hook passes --ignore-missing-imports; adding similar here
+# makes a local `mypy` run follow suit.
+[[tool.mypy.overrides]]
+module = [
+  "scipy", "scipy.*", "threadpoolctl", "cupy", "cupyx.*",
+  "graphviz", "napari", "magicgui", "vispy", "qtpy",
+]
+ignore_missing_imports = true
+
+[tool.codespell]
+skip = '.git'
+check-hidden = true
+
+[tool.check-manifest]
+ignore = [
+  "*.yaml",
+  "tests/",
+  "tests/*",
+  "docs/",
+  "docs/*",
+]

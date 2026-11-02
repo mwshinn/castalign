@@ -492,7 +492,7 @@ def alignment_gui(movable_image, base_image, transform=None, graph=None, referen
                 layer_movable.data = tfi
                 layer_movable.translate = tform.origin_and_maxpos(mi, output_size=outsize, force_size=False)[0]
             else:
-                # This is complicated due to the possibilty of dragging a cropped image out of the crop boundaries
+                # This is complicated due to the possibility of dragging a cropped image out of the crop boundaries
                 layer_movable.translate = _prev_translate - tform.shift
             layer_movable.refresh()
         if isinstance(tform, AffineTransform) and (np.any(_prev_matrix != tform.matrix) or force):
@@ -781,7 +781,7 @@ def align_interactive(nodes_movable, nodes_fixed, graph=None, transform=None, re
 
     This is the primary tool used to align images in CASTalign.  It can be used
     to visually create or edit chains of transforms from a buffet of options,
-    either by setting points, dragging and dropping images, or chosing
+    either by setting points, dragging and dropping images, or choosing
     parameters.  Transforms are updated in real time during editing.
 
     On a practical level, the workflow is:
