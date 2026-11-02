@@ -111,15 +111,15 @@ lint.select = [
   "F",   # Pyflakes
   "I",   # isort
 ]
-# The following rules flagged existing castalign code (at 9d389cff) and need
-# human judgement to fix. Ignore them for now but fix them in time.
+# The following rules flagged existing castalign code (hit counts after the
+# ruff-format pass in 212485f) and need human judgement to fix. Ignore them
+# for now but fix them in time.
 lint.ignore = [
-  "E501",  # line too long (508 hits)
+  "E501",  # line too long (115 hits)
   "E731",  # lambda assignment (13)
   "E741",  # ambiguous variable name (8)
-  "E701",  # multiple statements on one line (5)
   "E722",  # bare except (4)
-  "F841",  # unused local variable (8)
+  "F841",  # unused local variable (7)
 ]
 fix = true
 # These rules all pertain to imports and are ignored on a per-file basis.
