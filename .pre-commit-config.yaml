@@ -38,7 +38,6 @@ repos:
             additional_dependencies:
               - setuptools>=77
               - wheel
-              - setuptools-scm[toml]>=8
     - repo: https://github.com/codespell-project/codespell
       # Configuration for codespell is in pyproject.toml
       rev: v2.4.3
