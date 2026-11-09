@@ -1,0 +1,158 @@
+[project]
+name = "castalign"
+authors = [{name = "Max Shinn", email = "m.shinn@ucl.ac.uk"}]
+maintainers = [{name = "Max Shinn", email = "m.shinn@ucl.ac.uk"}]
+description = "Coppafish, Antibody Staining, and Two-photon alignment: 3D alignment framework for microscopy and in vivo imaging"
+readme = "README.md"
+requires-python = ">=3.11.0"
+dynamic = ["version"]
+
+dependencies = [
+  "numpy",
+  "scipy",
+  "napari",
+  "magicgui",
+  "scikit-image",
+  "imageio",
+  "imageio-ffmpeg",
+  "threadpoolctl",
+  "pyqt6",
+]
+
+license = "MIT"
+license-files = ["LICENSE"]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Multimedia :: Graphics",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mwshinn/castalign"
+"Documentation" = "https://castalign.readthedocs.io/en/latest/"
+"Publication" = "https://doi.org/10.64898/2026.05.15.725413"
+"Bug Tracker" = "https://github.com/mwshinn/castalign/issues"
+"Source Code" = "https://github.com/mwshinn/castalign"
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "pytest-cov",
+  "coverage",
+  "tox",
+  "mypy",
+  "pre-commit",
+  "ruff",
+]
+
+[build-system]
+requires = [
+    "setuptools>=77",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["castalign*"]
+exclude = ["tests*", "docs*"]
+
+[tool.setuptools.dynamic]
+version = {attr = "castalign._version.__version__"}
+
+[tool.pytest.ini_options]
+# `-p no:napari -p no:npe2`: napari and npe2 (a napari dependency) each
+# register their own pytest plugin, and both trigger pydantic deprecation
+# warnings from inside those packages: napari's from an autouse fixture before
+# every test, npe2's when pytest imports the plugin (pytest>=9.2 filters
+# warnings at that stage too; pytest#12697). The "error" filter below turns
+# these into errors. castalign's tests use neither plugin's fixtures, so both
+# are disabled. If GUI tests needing napari fixtures (e.g. make_napari_viewer)
+# are added and napari still hasn't updated their deprecated code, these flags
+# should be removed and the specific warning should be ignored instead.
+addopts = "--cov=castalign -p no:napari -p no:npe2"
+filterwarnings = [
+    "error",
+]
+
+[tool.tox]
+requires = ["tox>=4.22", "tox-gh-actions"]
+env_list = ["py311", "py312", "py313"]
+
+[tool.tox.gh-actions]
+python = """
+    3.11: py311
+    3.12: py312
+    3.13: py313
+"""
+
+[tool.tox.env_run_base]
+pass_env = ["CI", "GITHUB_ACTIONS"]
+dependency_groups = ["dev"]
+commands = [
+    ["pytest", "-v", "--color=yes", "--cov=castalign", "--cov-report=xml"],
+]
+
+[tool.ruff]
+line-length = 120
+exclude = ["__init__.py", "build", ".eggs"]
+lint.select = [
+  "E",   # pycodestyle errors
+  "F",   # Pyflakes
+  "I",   # isort
+]
+# The following rules flagged existing castalign code (hit counts after the
+# ruff-format pass) and need human judgement to fix. Ignore them for now but
+# fix them in time.
+lint.ignore = [
+  "E501",  # line too long (15 hits)
+  "E731",  # lambda assignment (13)
+  "E741",  # ambiguous variable name (8)
+  "E722",  # bare except (4)
+  "F841",  # unused local variable (7)
+]
+fix = true
+# These rules all pertain to imports and are ignored on a per-file basis.
+# F401: unused-import
+# F403: undefined-local-with-import-star
+# F405: undefined-local-with-import-star-usage
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["F403", "F405"]    # tests use `from castalign import *`
+"castalign/base.py" = ["F401"]   # imported names are re-exported by `from .base import *`
+
+[tool.ruff.format]
+# Leave code examples in docstrings and docs as written
+docstring-code-format = false
+exclude = ["*.md", "docs/scripts/*"]
+
+# mypy runs at default strictness.
+# The pre-commit hook passes --ignore-missing-imports; adding similar here
+# makes a local `mypy` run follow suit.
+[[tool.mypy.overrides]]
+module = [
+  "scipy", "scipy.*", "threadpoolctl", "cupy", "cupyx.*",
+  "graphviz", "napari", "magicgui", "vispy", "qtpy",
+]
+ignore_missing_imports = true
+
+[tool.codespell]
+skip = '.git'
+check-hidden = true
+
+[tool.check-manifest]
+ignore = [
+  "*.yaml",
+  "tests/",
+  "tests/*",
+  "docs/",
+  "docs/*",
+]

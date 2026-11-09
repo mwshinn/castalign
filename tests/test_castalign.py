@@ -1,14 +1,13 @@
+import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
-import os
-import shutil
 
 import numpy as np
 
 import castalign as ca
 from castalign import *
-
 
 TEST_SLOW_TRANSFORMS = False
 
@@ -48,11 +47,22 @@ class TestTransforms(unittest.TestCase):
                 y=-8,
                 z=5,
             ),
-            dict(xscale=1.2, yscale=0.9, zscale=1.4, xrotate=3, yrotate=2, zrotate=10, yzshear=0.2, xzshear=-0.1, xyshear=0.15, x=10, y=-8, z=5),
+            dict(
+                xscale=1.2,
+                yscale=0.9,
+                zscale=1.4,
+                xrotate=3,
+                yrotate=2,
+                zrotate=10,
+                yzshear=0.2,
+                xzshear=-0.1,
+                xyshear=0.15,
+                x=10,
+                y=-8,
+                z=5,
+            ),
         ]
-        cls.fixed_transforms = [
-            t(**tp) for t, tp in zip(cls._fixed_transforms, cls._fixed_transforms_params)
-        ]
+        cls.fixed_transforms = [t(**tp) for t, tp in zip(cls._fixed_transforms, cls._fixed_transforms_params)]
 
         cls._point_transforms = [
             Rigid,
@@ -68,18 +78,14 @@ class TestTransforms(unittest.TestCase):
         points_pre_flat[:, 1:3] *= 150
         points_pre_flat[:, 0] *= 10
         points_post_flat = points_pre_flat @ rotation_matrix(2, 3, -2) - 4
-        cls.point_transforms_2d = [
-            t(points_pre_flat, points_post_flat) for t in cls._point_transforms_2d
-        ]
+        cls.point_transforms_2d = [t(points_pre_flat, points_post_flat) for t in cls._point_transforms_2d]
 
         cls.points_pre = np.random.randn(50, 3)
         cls.points_post = cls.points_pre @ rotation_matrix(4, 6, 2) - 9
         cls.point_transforms = [
             t(cls.points_pre, cls.points_post) for t in cls._point_transforms
         ] + cls.point_transforms_2d
-        cls.point_transforms_slow = [
-            t(cls.points_pre, cls.points_post) for t in cls._point_transforms_slow
-        ]
+        cls.point_transforms_slow = [t(cls.points_pre, cls.points_post) for t in cls._point_transforms_slow]
 
         cls.all_transforms = cls.fixed_transforms + cls.point_transforms
         cls.new_points = np.random.randn(10, 3).astype("float32")
@@ -87,13 +93,7 @@ class TestTransforms(unittest.TestCase):
 
         cls.checkerboard = np.asarray(
             [
-                [
-                    [
-                        float(((i // 10) + (j // 10) + (k // 10)) % 2)
-                        for i in range(0, 150)
-                    ]
-                    for j in range(0, 300)
-                ]
+                [[float(((i // 10) + (j // 10) + (k // 10)) % 2) for i in range(0, 150)] for j in range(0, 300)]
                 for k in range(0, 30)
             ]
         )
@@ -165,10 +165,7 @@ class TestTransforms(unittest.TestCase):
     def test_distance_weighted_average_behavior(self):
         for t in self.point_transforms_slow:
             self.assertTrue(
-                np.all(
-                    t.invert().transform(self.new_points_big)[0:5]
-                    == t.invert().transform(self.new_points_big[0:5])
-                )
+                np.all(t.invert().transform(self.new_points_big)[0:5] == t.invert().transform(self.new_points_big[0:5]))
             )
 
     def test_partial_compositions_invertible(self):
@@ -196,9 +193,7 @@ class TestTransforms(unittest.TestCase):
                 self.assertTrue(
                     self.close(
                         t.transform(self.new_points),
-                        t2(self.points_pre, self.points_post).transform(
-                            t1.transform(self.new_points)
-                        ),
+                        t2(self.points_pre, self.points_post).transform(t1.transform(self.new_points)),
                     ),
                     msg=f"Transform {t} was not close",
                 )
@@ -215,18 +210,10 @@ class TestTransforms(unittest.TestCase):
 
     def test_compositions_transforming_images(self):
         for t in self.all_transforms + self.point_transforms_slow:
-            image_transformed_once = t.transform_image(
-                self.checkerboard, output_size=self.checkerboard.shape
-            )
-            image_transformed_twice = t.transform_image(
-                image_transformed_once, output_size=self.checkerboard.shape
-            )
-            image_transformed_sum = (t + t).transform_image(
-                self.checkerboard, output_size=self.checkerboard.shape
-            )
-            sim = np.mean(
-                image_transformed_twice.flatten() == image_transformed_sum.flatten()
-            )
+            image_transformed_once = t.transform_image(self.checkerboard, output_size=self.checkerboard.shape)
+            image_transformed_twice = t.transform_image(image_transformed_once, output_size=self.checkerboard.shape)
+            image_transformed_sum = (t + t).transform_image(self.checkerboard, output_size=self.checkerboard.shape)
+            sim = np.mean(image_transformed_twice.flatten() == image_transformed_sum.flatten())
             self.assertGreater(
                 sim,
                 0.9,
@@ -243,17 +230,13 @@ class TestTransforms(unittest.TestCase):
         self.assertTrue(self.close(Identity().transform(self.points_pre), self.points_pre))
         self.assertTrue(
             self.close(
-                RigidParametric(
-                    z=3, y=8, x=-3, zrotate=8, yrotate=-9, xrotate=2
-                ).transform(self.points_pre),
+                RigidParametric(z=3, y=8, x=-3, zrotate=8, yrotate=-9, xrotate=2).transform(self.points_pre),
                 self.points_pre @ rotation_matrix(8, -9, 2) + [3, 8, -3],
             )
         )
         self.assertTrue(
             self.close(
-                Translate(self.points_pre, self.points_pre + [5, 4, 3]).transform(
-                    self.points_pre
-                ),
+                Translate(self.points_pre, self.points_pre + [5, 4, 3]).transform(self.points_pre),
                 self.points_pre + [5, 4, 3],
             )
         )
@@ -285,12 +268,44 @@ class TestTransforms(unittest.TestCase):
     def test_affineparametric_matches_special_cases(self):
         p = self.new_points
         trr = AffineParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1)
-        aff_no_shear = AffineParametric(z=2, y=-3, x=4, zrotate=8, yrotate=-4, xrotate=2, zscale=1.2, yscale=0.8, xscale=1.1, yzshear=0, xzshear=0, xyshear=0)
-        self.assertTrue(self.close(trr.transform(p), aff_no_shear.transform(p)), msg="AffineParametric with default shear should match explicit zero shear")
+        aff_no_shear = AffineParametric(
+            z=2,
+            y=-3,
+            x=4,
+            zrotate=8,
+            yrotate=-4,
+            xrotate=2,
+            zscale=1.2,
+            yscale=0.8,
+            xscale=1.1,
+            yzshear=0,
+            xzshear=0,
+            xyshear=0,
+        )
+        self.assertTrue(
+            self.close(trr.transform(p), aff_no_shear.transform(p)),
+            msg="AffineParametric with default shear should match explicit zero shear",
+        )
 
         shear = AffineParametric(z=2, y=-5, x=4, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
-        aff_no_rot_scale = AffineParametric(z=2, y=-5, x=4, zrotate=0, yrotate=0, xrotate=0, zscale=1, yscale=1, xscale=1, yzshear=0.3, xzshear=-0.2, xyshear=0.1)
-        self.assertTrue(self.close(shear.transform(p), aff_no_rot_scale.transform(p)), msg="AffineParametric with default rotate/scale should match explicit identity rotate/scale")
+        aff_no_rot_scale = AffineParametric(
+            z=2,
+            y=-5,
+            x=4,
+            zrotate=0,
+            yrotate=0,
+            xrotate=0,
+            zscale=1,
+            yscale=1,
+            xscale=1,
+            yzshear=0.3,
+            xzshear=-0.2,
+            xyshear=0.1,
+        )
+        self.assertTrue(
+            self.close(shear.transform(p), aff_no_rot_scale.transform(p)),
+            msg="AffineParametric with default rotate/scale should match explicit identity rotate/scale",
+        )
 
     def test_matrixparametric_general_inverse(self):
         t = MatrixParametric(
@@ -327,20 +342,15 @@ class TestSpotTransforms(unittest.TestCase):
             dict(),
         ]
         cls.fixed_transforms_spot = [
-            t(**tp)
-            for t, tp in zip(cls._fixed_transforms_spot, cls._fixed_transforms_params_spot)
+            t(**tp) for t, tp in zip(cls._fixed_transforms_spot, cls._fixed_transforms_params_spot)
         ]
         cls._point_transforms_spot = [Rigid, Translate, Rigid]
         cls._point_transforms_spot_slow = [Triangulation]
 
         cls.points_pre = np.random.randn(100, 3) + 50
         cls.points_post = (cls.points_pre @ rotation_matrix(1, 2, 3)) - 9
-        cls.point_transforms_spot = [
-            t(cls.points_pre, cls.points_post) for t in cls._point_transforms_spot
-        ]
-        cls.point_transforms_spot_slow = [
-            t(cls.points_pre, cls.points_post) for t in cls._point_transforms_spot_slow
-        ]
+        cls.point_transforms_spot = [t(cls.points_pre, cls.points_post) for t in cls._point_transforms_spot]
+        cls.point_transforms_spot_slow = [t(cls.points_pre, cls.points_post) for t in cls._point_transforms_spot_slow]
 
         cls.all_transforms_spot = cls.fixed_transforms_spot + cls.point_transforms_spot
 
@@ -363,9 +373,7 @@ class TestSpotTransforms(unittest.TestCase):
                 t = t1 + t2
                 spot_rel = np.mean(np.where(t.transform_image(self.spot) > 0.1), axis=1)
                 self.assertLess(
-                    np.max(
-                        spot_rel - (t.transform([self.spotpos]) - t.origin_and_maxpos(self.spot)[0])
-                    ),
+                    np.max(spot_rel - (t.transform([self.spotpos]) - t.origin_and_maxpos(self.spot)[0])),
                     1,
                 )
                 spot_abs = np.mean(
@@ -383,13 +391,7 @@ class TestNonRigidTransforms(unittest.TestCase):
         cls.points_post = (cls.points_pre @ rotation_matrix(1, 2, 3)) - 9
         cls.checkerboard = np.asarray(
             [
-                [
-                    [
-                        float(((i // 10) + (j // 10) + (k // 10)) % 2)
-                        for i in range(0, 150)
-                    ]
-                    for j in range(0, 300)
-                ]
+                [[float(((i // 10) + (j // 10) + (k // 10)) % 2) for i in range(0, 150)] for j in range(0, 300)]
                 for k in range(0, 30)
             ]
         )
@@ -421,10 +423,7 @@ class TestNonRigidTransforms(unittest.TestCase):
             self.assertGreater(
                 corr,
                 0.95,
-                msg=(
-                    f"Correlation for normal and complicated version of {simple} "
-                    f"was too low, it was {corr}"
-                ),
+                msg=(f"Correlation for normal and complicated version of {simple} was too low, it was {corr}"),
             )
 
 
@@ -475,9 +474,7 @@ class TestGraphs(unittest.TestCase):
 
         self.assertTrue(
             np.allclose(
-                g.get_transform("bx", "d").transform(
-                    g.get_transform("d", "bx").transform(new_points)
-                ),
+                g.get_transform("bx", "d").transform(g.get_transform("d", "bx").transform(new_points)),
                 new_points,
                 atol=1e-3,
                 rtol=1e-3,
@@ -495,11 +492,12 @@ class TestGraphs(unittest.TestCase):
 
 class InvertibleError(PointTransformNoAnalyticInverse):
     DEFAULT_PARAMETERS = {"extent": 1, "invert": False}
+
     def _transform(self, points, points_start, points_end):
         return points
 
-class TestGraph(unittest.TestCase):
 
+class TestGraph(unittest.TestCase):
     def setUp(self):
         """Set up a temporary directory for test files."""
         self.test_dir = tempfile.mkdtemp()
@@ -526,13 +524,13 @@ class TestGraph(unittest.TestCase):
         """Test adding and removing nodes."""
         g = Graph("NodeTest")
         img1 = self._create_sample_image(1)
-        
+
         # Add a node with an image
         g.add_node("node1", image=img1, metadata="This is node 1.")
         self.assertIn("node1", g.nodes)
         self.assertIn("node1", g.edges)
         self.assertIn("node1", g.node_images)
-        self.assertIn("node1", g.compressed_node_images) # Should be dirty
+        self.assertIn("node1", g.compressed_node_images)  # Should be dirty
         self.assertEqual(g.node_metadata["node1"], "This is node 1.")
         np.testing.assert_array_equal(g.get_image("node1"), img1)
 
@@ -542,11 +540,11 @@ class TestGraph(unittest.TestCase):
         self.assertNotIn("node2", g.node_images)
         with self.assertRaises(KeyError):
             g.get_image("node2")
-            
+
         # Add a node that references another
         g.add_node("node1_ref", image="node1")
         self.assertIn("node1_ref", g.node_images)
-        self.assertEqual(g.node_images['node1_ref'], 'ref:node1')
+        self.assertEqual(g.node_images["node1_ref"], "ref:node1")
 
         # Remove the node
         g.remove_node("node1")
@@ -590,7 +588,7 @@ class TestGraph(unittest.TestCase):
 
         g_orig.add_node("n1", image=img1, metadata="Note for n1")
         g_orig.add_node("n2", image=img2)
-        g_orig.add_node("n3", image="n1") # Reference node
+        g_orig.add_node("n3", image="n1")  # Reference node
         g_orig.add_node("n4")
         g_orig.add_edge("n1", "n2", TranslateParametric(x=5))
         g_orig.metadata = {"author": "tester"}
@@ -606,18 +604,18 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(g_orig.node_metadata, g_loaded.node_metadata)
         self.assertEqual(g_orig.metadata, g_loaded.metadata)
         self.assertEqual(repr(g_orig.edges), repr(g_loaded.edges))
-        
+
         # Test dynamic image loading
-        self.assertIsNone(g_loaded.node_images["n1"]) # Should not be loaded yet
+        self.assertIsNone(g_loaded.node_images["n1"])  # Should not be loaded yet
         np.testing.assert_array_equal(g_loaded.get_image("n1"), img1)
-        self.assertIsNotNone(g_loaded.node_images["n1"]) # Should be cached now
-        
+        self.assertIsNotNone(g_loaded.node_images["n1"])  # Should be cached now
+
         np.testing.assert_array_equal(g_loaded.get_image("n2"), img2)
-        
+
         # Test loading of a referenced image
         self.assertEqual(g_loaded.node_images["n3"], "ref:n1")
         # get_image should calculate the transformed image
-        transformed_img = TranslateParametric(x=0).transform_image(img1) # Bogus transform, just for check
+        transformed_img = TranslateParametric(x=0).transform_image(img1)  # Bogus transform, just for check
         # With our mocks, the path n1->n3 is empty, so there will be an error
         with self.assertRaises(RuntimeError):
             g_loaded.get_image("n3")
@@ -630,12 +628,12 @@ class TestGraph(unittest.TestCase):
 
         g.add_node("node1", image=img1)
         g.add_node("node2", image=img2)
-        
+
         # Initial save, all images are dirty
         self.assertIn("node1", g.compressed_node_images)
         self.assertIn("node2", g.compressed_node_images)
         g.save(self.db_path)
-        self.assertEqual(g.compressed_node_images, {}) # Dirty dict should be cleared
+        self.assertEqual(g.compressed_node_images, {})  # Dirty dict should be cleared
 
         # Load, modify one image, and resave
         g_loaded = Graph.load(self.db_path)
@@ -643,12 +641,12 @@ class TestGraph(unittest.TestCase):
 
         new_img2 = self._create_sample_image(99)
         g_loaded.replace_node_image("node2", new_img2)
-        
+
         # Now only node2 should be dirty
         self.assertNotIn("node1", g_loaded.compressed_node_images)
         self.assertIn("node2", g_loaded.compressed_node_images)
 
-        g_loaded.save() # Resave to the same path
+        g_loaded.save()  # Resave to the same path
         self.assertEqual(g_loaded.compressed_node_images, {})
 
         # Load again and verify changes
@@ -661,24 +659,24 @@ class TestGraph(unittest.TestCase):
         # Create a fake old .npz file
         name = "OldNPZ"
         nodes = ["A", "B"]
-        edges = repr({'A': {'B': TranslateParametric(x=1)}, 'B': {'A': TranslateParametric(x=1)}})
+        edges = repr({"A": {"B": TranslateParametric(x=1)}, "B": {"A": TranslateParametric(x=1)}})
         node_images_keys = ["A"]
         # Use our mock compression to get the right format
         img_a_data, img_a_info = utils.compress_image(self._create_sample_image(50))
 
         np.savez_compressed(
-            self.npz_path, 
-            name=name, 
-            nodes=nodes, 
-            edges=edges, 
-            nodeimage_keys=node_images_keys, 
-            nodeimage_0=img_a_data, 
-            nodeimageinfo_0=img_a_info
+            self.npz_path,
+            name=name,
+            nodes=nodes,
+            edges=edges,
+            nodeimage_keys=node_images_keys,
+            nodeimage_0=img_a_data,
+            nodeimageinfo_0=img_a_info,
         )
 
         # Load the .npz file
         g = Graph.load(self.npz_path)
-        
+
         # Check data integrity
         self.assertEqual(g.name, name)
         self.assertEqual(sorted(g.nodes), sorted(nodes))
@@ -703,8 +701,8 @@ class TestGraph(unittest.TestCase):
         g.add_node("A")
         g.add_node("B")
         g.add_node("C")
-        g.add_node("D") # Disconnected
-        
+        g.add_node("D")  # Disconnected
+
         g.add_edge("A", "B", TranslateParametric(x=10))
         g.add_edge("B", "C", TranslateParametric(x=5))
 
@@ -716,7 +714,7 @@ class TestGraph(unittest.TestCase):
         # Chained transform
         t_ac = g.get_transform("A", "C")
         self.assertTrue(np.all(t_ac.transform([1, 2, 3]) == ca.TranslateParametric(x=15).transform([1, 2, 3])))
-        
+
         # Identity transform
         t_aa = g.get_transform("A", "A")
         self.assertIsInstance(t_aa, Identity)
@@ -743,20 +741,20 @@ class TestGraph(unittest.TestCase):
 
         # Getting it again should reload from DB
         np.testing.assert_array_equal(g_loaded.get_image("node1"), img1)
-    
+
     def test_09_remove_node_with_image_from_db(self):
         """Test that removing a node also removes its image on save."""
         g = Graph("RemoveFromDB")
         g.add_node("n1", image=self._create_sample_image(1))
         g.add_node("n2", image=self._create_sample_image(2))
         g.save(self.db_path)
-        
+
         # Load, remove a node, and save again
         g_loaded = Graph.load(self.db_path)
         g_loaded.remove_node("n1")
         self.assertNotIn("n1", g_loaded.nodes)
         g_loaded.save()
-        
+
         # Load final version and check
         g_final = Graph.load(self.db_path)
         self.assertIn("n2", g_final.nodes)
@@ -764,9 +762,10 @@ class TestGraph(unittest.TestCase):
         self.assertNotIn("n1", g_final.node_images)
         with self.assertRaises(KeyError):
             g_final.get_image("n1")
-        
+
         # Verify the image for n2 is still there
         np.testing.assert_array_equal(g_final.get_image("n2"), self._create_sample_image(2))
+
     def test_10_new_filename(self):
         """Test renaming a graph file by saving under a new name"""
         g = Graph("RemoveFromDB")
@@ -779,15 +778,14 @@ class TestGraph(unittest.TestCase):
         img3 = self._create_sample_image(4)
         g.replace_node_image("n1", image=img1_new)
         g.add_node("n3", image=img3)
-        g.save(self.db_path+".new")
-        g_loaded = Graph.load(self.db_path+".new")
+        g.save(self.db_path + ".new")
+        g_loaded = Graph.load(self.db_path + ".new")
         self.assertIn("n1", g_loaded.nodes)
         self.assertIn("n1", g_loaded.node_images)
         self.assertIn("n3", g_loaded.nodes)
         self.assertIn("n3", g_loaded.node_images)
         np.testing.assert_array_equal(g_loaded.get_image("n1"), img1_new)
         np.testing.assert_array_equal(g_loaded.get_image("n3"), img3)
-        
 
 
 class TestGPUAcceleration(unittest.TestCase):
@@ -797,6 +795,7 @@ class TestGPUAcceleration(unittest.TestCase):
         except Exception:
             self.skipTest("CuPy is not available")
         import castalign.base as base
+
         if not base.GPU_AVAILABLE:
             self.skipTest("GPU is not available for CuPy")
         self.base = base
@@ -875,9 +874,7 @@ class TestGPUAcceleration(unittest.TestCase):
                 chosen = rng.randint(0, len(source_simplices), size=150)
                 weights = rng.random((len(chosen), 3)) + 0.05
                 weights /= weights.sum(axis=1, keepdims=True)
-                query_parts.append(
-                    np.sum(t.all_points_start[source_simplices[chosen]] * weights[:, :, None], axis=1)
-                )
+                query_parts.append(np.sum(t.all_points_start[source_simplices[chosen]] * weights[:, :, None], axis=1))
 
             for dtype in (np.float32, np.float64):
                 query = np.concatenate(query_parts, axis=0).astype(dtype)

@@ -13,6 +13,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.viewcode",
     "myst_parser",
+    "sphinx.ext.intersphinx",
 ]
 
 autosummary_generate = True
@@ -45,3 +46,9 @@ root_doc = "index"
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["css", "_static"]
 html_css_files = ["extra.css"]
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/", None),
+}
