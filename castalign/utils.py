@@ -304,6 +304,7 @@ def _image_compression_transform(img, transform_id):
 
         * ``0``: no transform
         * ``1``: ``log(10 + max(img, 0))``
+        * ``2``: ``sqrt(max(img, 0))``
 
     Returns
     -------
@@ -318,6 +319,8 @@ def _image_compression_transform(img, transform_id):
         return img
     if transform_id == 1: # Truncated log + 10
         return np.log(10+np.maximum(0, img))
+    if transform_id == 2: # Truncated square root
+        return np.sqrt(np.maximum(0, img))
 
 def _image_decompression_transform(img, transform_id):
     """Undo internal intensity transforms after decompression.
@@ -334,6 +337,7 @@ def _image_decompression_transform(img, transform_id):
 
         * ``0``: no transform
         * ``1``: ``exp(img) - 10``
+        * ``2``: ``img ** 2``
 
     Returns
     -------
@@ -348,6 +352,8 @@ def _image_decompression_transform(img, transform_id):
         return img
     if transform_id == 1: # Truncated log + 10
         return np.exp(img)-10
+    if transform_id == 2: # Truncated square root
+        return np.square(img)
 
 def _image_detect_transform(img):
     """Pick which internal intensity transform to use before compression.
@@ -363,13 +369,13 @@ def _image_detect_transform(img):
     Returns
     -------
     int
-        Transform code: ``1`` when skewness is high, else ``0``.
+        Transform code: ``2`` when skewness is high, else ``0``.
     """
     _img = img if np.prod(img.shape) < 10000000 else img[::4,::4,::4] # Hack for big images
     if np.max(_img) == np.min(_img):
         return 0 # None
     if scipy.stats.skew(_img.reshape(-1)) > 25:
-        return 1 # Truncated log + 10
+        return 2 # Truncated square root
     return 0 # None
 
 def compress_image(img, level="normal"):

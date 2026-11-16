@@ -697,6 +697,62 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(out.shape, img.shape)
         np.testing.assert_allclose(out[0], img[0], atol=1e-6, rtol=1e-6)
 
+    def test_06c_image_intensity_transforms(self):
+        img = np.array([-9., 0., 1., 4., 25.])
+        sqrt_img = utils._image_compression_transform(img, 2)
+        np.testing.assert_allclose(sqrt_img, [0, 0, 1, 2, 5])
+        np.testing.assert_allclose(
+            utils._image_decompression_transform(sqrt_img, 2), np.maximum(img, 0)
+        )
+
+        log_img = utils._image_compression_transform(img, 1)
+        np.testing.assert_allclose(log_img, np.log(10 + np.maximum(img, 0)))
+        np.testing.assert_allclose(
+            utils._image_decompression_transform(log_img, 1), np.maximum(img, 0), atol=1e-12
+        )
+        np.testing.assert_array_equal(utils._image_compression_transform(img, 0), img)
+        np.testing.assert_array_equal(utils._image_decompression_transform(img, 0), img)
+
+        self.assertEqual(utils._image_detect_transform(np.ones((1, 64, 64))), 0)
+        self.assertEqual(utils._image_detect_transform(np.arange(4096).reshape(1, 64, 64)), 0)
+
+    def test_06d_skewed_image_compression(self):
+        for shape, format_id in [((1, 64, 64), 2), ((16, 32, 32), 1)]:
+            img = np.linspace(0, 1, num=np.prod(shape), dtype=np.float32).reshape(shape)
+            img.flat[:int(img.size * 0.0015)] = 400
+            self.assertEqual(utils._image_detect_transform(img), 2)
+
+            data, info = utils.compress_image(img, level="normal")
+            self.assertEqual(info[:2], [format_id, 2])
+            out = utils.decompress_image(data, info)
+            self.assertEqual(out.shape, img.shape)
+            self.assertTrue(np.isfinite(out).all())
+            np.testing.assert_allclose(out[img == 400], 400, rtol=0.3, atol=20)
+
+            # Old files use transform ID 1 and must remain readable.
+            old_detect_transform = utils._image_detect_transform
+            try:
+                utils._image_detect_transform = lambda image: 1
+                old_data, old_info = utils.compress_image(img, level="normal")
+            finally:
+                utils._image_detect_transform = old_detect_transform
+            self.assertEqual(old_info[:2], [format_id, 1])
+            old_out = utils.decompress_image(old_data, old_info)
+            self.assertEqual(old_out.shape, img.shape)
+            np.testing.assert_allclose(old_out[img == 400], 400, rtol=0.3, atol=20)
+
+    def test_06e_skewed_graph_image(self):
+        img = np.linspace(0, 1, num=16*32*32, dtype=np.float32).reshape(16, 32, 32)
+        img.flat[:int(img.size * 0.0015)] = 400
+        g = Graph("SqrtCompression")
+        g.add_node("image", image=img)
+        self.assertEqual(g.compressed_node_images["image"][1][1], 2)
+        g.save(self.db_path)
+
+        out = Graph.load(self.db_path).get_image("image")
+        self.assertEqual(out.shape, img.shape)
+        np.testing.assert_allclose(out[img == 400], 400, rtol=0.3, atol=20)
+
     def test_07_get_transform(self):
         """Test pathfinding for transforms."""
         g = Graph("PathTest")
