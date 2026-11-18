@@ -378,7 +378,7 @@ def _image_detect_transform(img):
         return 2 # Truncated square root
     return 0 # None
 
-def compress_image(img, level="normal"):
+def compress_image(img, level="normal", clip="auto"):
     """Compress a 3D volume for CASTalign storage.
 
     This is the main package helper used when image volumes need to be saved in
@@ -388,14 +388,14 @@ def compress_image(img, level="normal"):
     ----------
     img : ndarray
         Volume data of shape ``(Z, Y, X)`` or ``(Y, X)`` (interpreted
-        as ``(1, Y, X)``)
+        as ``(1, Y, X)``). Images must be non-negative.
     level : {'low', 'normal', 'high', 'label'}, optional
         Compression mode.
 
         - ``'label'`` forces lossless label-style compression.
         - ``'low'``, ``'normal'``, ``'high'`` are lossy settings for
-
           non-label-like data.
+    clip : {'auto', 'none'}, optional
 
     Returns
     -------
@@ -420,12 +420,18 @@ def compress_image(img, level="normal"):
         # Gzip is fast but not great, so we compress twice and this works well (but why?)
         comp = zlib.compress(zlib.compress(img, 9), 9)
         return comp, [3, str(img.dtype), *img.shape]
+    assert np.min(img) >= 0, "Images must be non-negative"
     if min(img.shape) > 10: # Compress volumes as a video in vp9 format (format code 1)
         transform_id = _image_detect_transform(img)
         img = _image_compression_transform(img, transform_id)
         bitrate = 20000000 if level == "normal" else 40000000 if level == "high" else 10000000
         # We normalise in a complicated way to reduce memory usage for large images
-        maxplanes = np.quantile(img, .999)
+        if clip == "auto":
+            maxplanes = np.quantile(img, .999)
+        elif clip == "none":
+            maxplanes = np.max(img)
+        else:
+            raise ValueError(f"Invalid clip {clip}")
         minplanes = np.min(img)
         imgnorm = img.copy()
         imgnorm[imgnorm>maxplanes] = maxplanes
@@ -458,7 +464,12 @@ def compress_image(img, level="normal"):
         mins = []
         for i in range(0, img.shape[0]):
             pseudofile = io.BytesIO()
-            maxval = np.quantile(img[i], .999)
+            if clip == "auto":
+                maxval = np.quantile(img[i], .999)
+            elif clip == "none":
+                maxval = np.max(img[i])
+            else:
+                raise ValueError(f"Invalid clip {clip}")
             minval = np.min(img[i])
             maxes.append(maxval)
             mins.append(minval)

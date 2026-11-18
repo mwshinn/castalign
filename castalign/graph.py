@@ -424,7 +424,7 @@ class Graph:
         g.filename = os.path.splitext(filename)[0] + '.db'
         return g
     
-    def add_node(self, name, image=None, compression="normal", metadata=None):
+    def add_node(self, name, image=None, compression="normal", metadata=None, clip="auto"):
         """Add a node, optionally with image data or an image reference.
 
         Setting the image to be a reference (the name of another node with image
@@ -444,6 +444,8 @@ class Graph:
             Compression level for stored ndarray image data.
         metadata : object, optional
             Per-node metadata.
+        clip : {'auto', 'none'}, optional
+            Clip the upper range of the image when compressed.
 
         Returns
         -------
@@ -468,7 +470,7 @@ class Graph:
             else:
                 if image.ndim == 2:
                     image = image[None]
-                compressed = utils.compress_image(image, level=compression)
+                compressed = utils.compress_image(image, level=compression, clip=clip)
                 self.compressed_node_images[name] = compressed
                 self.node_images[name] = image
         if metadata is not None:
@@ -501,7 +503,7 @@ class Graph:
                 del self.edges[n][name]
         self.nodes.remove(name)
 
-    def replace_node_image(self, name, image=None, compression="normal"):
+    def replace_node_image(self, name, image=None, compression="normal", clip="auto"):
         """Replace or remove a node image without changing graph connections.
 
         Parameters
@@ -513,6 +515,8 @@ class Graph:
             2D input is promoted to ``(1, Y, X)``.
         compression : {'low', 'normal', 'high', 'label'}, optional
             Compression level for stored ndarray image data.
+        clip : {'auto', 'none'}, optional
+            Clipping the upper range of the image when compressed.
 
         Returns
         -------
@@ -534,7 +538,7 @@ class Graph:
         else:
             if image.ndim == 2:
                 image = image[None]
-            compressed = utils.compress_image(image, level=compression)
+            compressed = utils.compress_image(image, level=compression, clip=clip)
             self.compressed_node_images[name] = compressed
             self.node_images[name] = image
 
