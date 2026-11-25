@@ -1,7 +1,11 @@
+import contextlib
+import gc
+import io
 import os
 import shutil
 import tempfile
 import unittest
+import weakref
 from pathlib import Path
 
 import numpy as np
@@ -786,6 +790,75 @@ class TestGraph(unittest.TestCase):
         self.assertIn("n3", g_loaded.node_images)
         np.testing.assert_array_equal(g_loaded.get_image("n1"), img1_new)
         np.testing.assert_array_equal(g_loaded.get_image("n3"), img3)
+
+    def _reference_graph(self):
+        """Helper: node 'a' with an image, and 'a_ref' referencing it, translated by x=3."""
+        g = Graph("References")
+        img = np.random.default_rng(0).integers(0, 255, (1, 16, 16)).astype(np.uint8)
+        g.add_node("a", image=img)
+        g.add_node("a_ref", image="a")
+        g.add_edge("a", "a_ref", TranslateParametric(x=3))
+        return g, img
+
+    def test_11_reference_image_follows_edge_change(self):
+        """A reference node's image is recomputed when its edge changes."""
+        g, _ = self._reference_graph()
+        np.testing.assert_array_equal(g.get_image("a_ref").origin, [0, 0, 3])
+        g.add_edge("a", "a_ref", TranslateParametric(x=6), update=True)
+        np.testing.assert_array_equal(g.get_image("a_ref").origin, [0, 0, 6])
+        self.assertEqual(g.node_images["a_ref"], "ref:a")  # Still recorded as a reference
+
+    def test_12_reference_image_follows_route_change(self):
+        """A reference node's image is recomputed when another edge creates a shorter route."""
+        g, _ = self._reference_graph()
+        g.add_node("m")
+        g.add_node("r", image="a")
+        g.add_edge("a", "m", TranslateParametric(x=1))
+        g.add_edge("m", "r", TranslateParametric(x=1))
+        np.testing.assert_array_equal(g.get_image("r").origin, [0, 0, 2])
+        with contextlib.redirect_stdout(io.StringIO()):  # add_edge prints a cycle warning
+            g.add_edge("a", "r", TranslateParametric(x=5))
+        np.testing.assert_array_equal(g.get_image("r").origin, [0, 0, 5])
+
+    def test_13_reference_image_follows_replaced_image(self):
+        """A reference node's image is recomputed when the referenced image is replaced."""
+        g, img = self._reference_graph()
+        self.assertGreater(g.get_image("a_ref").sum(), 0)
+        g.replace_node_image("a", image=np.zeros_like(img))
+        self.assertEqual(g.get_image("a_ref").sum(), 0)
+
+    def test_14_reference_image_cache(self):
+        """Unchanged reference images are reused; chains update; remove_node and unload drop entries."""
+        g, _ = self._reference_graph()
+        first = g.get_image("a_ref")
+        self.assertIs(g.get_image("a_ref"), first)  # Reused, not recomputed
+        # a_ref2 references a_ref, which references a
+        g.add_node("a_ref2", image="a_ref")
+        g.add_edge("a_ref", "a_ref2", TranslateParametric(x=1))
+        np.testing.assert_array_equal(g.get_image("a_ref2").origin, [0, 0, 4])
+        g.add_edge("a", "a_ref", TranslateParametric(x=6), update=True)
+        np.testing.assert_array_equal(g.get_image("a_ref2").origin, [0, 0, 7])
+        g.remove_node("a_ref2")
+        self.assertNotIn("a_ref2", g._ref_images)
+        g.save(self.db_path)  # unload only frees saved images
+        g.unload()
+        self.assertIsNone(g.node_images["a"])  # The source was really unloaded
+        self.assertEqual(g._ref_images, {})
+        np.testing.assert_array_equal(g.get_image("a_ref").origin, [0, 0, 6])  # Reloaded and recomputed
+
+    def test_15_reference_cache_does_not_keep_old_source(self):
+        """The reference image cache doesn't keep a replaced source image in memory."""
+        g = Graph("References")
+        g.add_node("a", image=np.ones((2, 16, 16), dtype=np.uint8))
+        g.add_node("a_half", image="a")
+        # A rescale gives a new array; a translation would give a view that keeps the source alive
+        g.add_edge("a", "a_half", RescaleParametric(z=1, y=0.5, x=0.5))
+        self.assertFalse(np.shares_memory(g.get_image("a_half"), g.node_images["a"]))
+        old_source = weakref.ref(g.node_images["a"])
+        g.replace_node_image("a", image=np.zeros((2, 16, 16), dtype=np.uint8))
+        gc.collect()
+        self.assertIsNone(old_source())
+        self.assertEqual(g.get_image("a_half").sum(), 0)
 
 
 class TestGPUAcceleration(unittest.TestCase):
