@@ -2,6 +2,7 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import weakref
 
 import numpy as np
 
@@ -34,9 +35,19 @@ class Graph:
         # node_images is a cache. It can contain:
         # - an ndarray if the image is loaded.
         # - None if the image exists in the DB but is not loaded.
-        # - a 'ref:other_node' string if it's a reference to another node.
+        # - a 'ref:other_node' string if it's a reference to another node
+        #   (the computed images go in another cache in _ref_images).
         # Keys are all nodes that have an associated image.
         self.node_images = {}
+
+        # _ref_images caches the computed images of reference nodes.
+        # Format: {node_name: (weakref to source_image, repr(transform), image)}.
+        # source_image and transform are what the image was computed from.
+        # get_image only will only return image if both source_image and transform match
+        # the current source image and transform, so that stale entries aren't returned
+        # if edges or the referenced image change. The weak reference means the cache
+        # never keeps an old source image in memory.
+        self._ref_images = {}
 
         # compressed_node_images stores "dirty" images that need to be saved to the database.
         # Format: {node_name: (compressed_data, info)} for image data
@@ -508,6 +519,8 @@ class Graph:
             del self.compressed_node_images[name]
         if name in self.node_images:
             del self.node_images[name]
+        if name in self._ref_images:
+            del self._ref_images[name]
         if name in self.node_metadata:
             del self.node_metadata[name]
         del self.edges[name]
@@ -685,6 +698,9 @@ class Graph:
         -------
         None
         """
+        # Computed reference images can always be recomputed and aren't stored in the
+        # database so can be readily dropped.
+        self._ref_images.clear()
         # Before deleting nodes from node_images, make sure that this isn't
         # unsaved.
         nodes_to_unload = [
@@ -824,7 +840,9 @@ class Graph:
         Notes
         -----
         If the node image is a reference (``"ref:other_node"``), the referenced
-        image is transformed into this node's space and returned.
+        image is transformed into this node's space and returned.  The result is
+        cached, and recomputed if the referenced image or the transform between
+        the two nodes has changed since.
         """
         if node not in self.nodes:
             raise KeyError(f"Node '{node}' does not exist.")
@@ -836,9 +854,27 @@ class Graph:
         if isinstance(cached_value, np.ndarray):
             return cached_value
         if isinstance(cached_value, str) and cached_value.startswith("ref:"):
+            # Reference node: its image is the referenced node's image, transformed into this
+            # node's space. Computed images are cached in _ref_images, but an entry is only
+            # reused if it was computed from the same inputs.
+
+            # First, get the current referenced image and the current transform to this node.
             imnode = cached_value.split(":", 1)[1]
-            transformed_image = self.get_transform(imnode, node).transform_image(self.get_image(imnode))
-            self.node_images[node] = transformed_image
+            source = self.get_image(imnode)
+            tform = self.get_transform(imnode, node)
+            tform_repr = repr(tform)
+
+            # If this node has a cached entry, compare the referenced image it was computed
+            # from and its transform with the current ones. If both match, return the cached image.
+            if node in self._ref_images:
+                source_ref, cached_repr, cached_image = self._ref_images[node]
+                if source_ref() is source and cached_repr == tform_repr:
+                    return cached_image
+
+            # Otherwise (no entry, or either input has changed), transform the current
+            # referenced image with the current transform, and cache the result.
+            transformed_image = tform.transform_image(source)
+            self._ref_images[node] = (weakref.ref(source), tform_repr, transformed_image)
             return transformed_image
         # If it is not cached, we will need to decompress.
         if cached_value is None:
